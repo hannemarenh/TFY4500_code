@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy import signal
+from matplotlib import pyplot as plt
 
 
 def trapezoid(y0, x0, x1, dt):
@@ -93,8 +94,44 @@ for i in range(0, len(check)):
 # Delete nan rows
 df = df.iloc[:, :-1].dropna(axis=0)
 
-
-
 acc = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']],dtype=float)*10**-3
 gyro = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']],dtype=float)*10**-3
 mag = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']],dtype=float)*10**-3
+
+#region Plot raw data
+start = 18000
+stop = 20000
+acc_raw = acc[start:stop]
+gyro_raw = gyro[start:stop]
+mag_raw = mag[start:stop]
+
+# Make time axis
+freq = 100  #[Hz]
+size = len(acc)
+time = np.linspace(0, size / (freq), size)
+
+
+fig, (ax1, ax2, ax3) = plt.subplots(3)
+ax1.plot(time, acc_raw[:, 0], label='accX')
+ax1.plot(time, acc_raw[:, 1], label='accY')
+ax1.plot(time, acc_raw[:, 2], label='accZ')
+ax1.set_xlabel('Time [s]')
+ax1.set_ylabel('Acceleration [g]')
+ax1.legend(loc='upper right')
+
+ax2.plot(time, gyro_raw[:, 0], label='gyroX')
+ax2.plot(time, gyro_raw[:, 1], label='gyroY')
+ax2.plot(time, gyro_raw[:, 2], label='gyroZ')
+ax2.set_xlabel('Time [s]')
+ax2.set_ylabel('Gyroscope data [dps]')
+ax2.legend(loc='upper right')
+
+ax3.plot(time, mag_raw[:, 0], label='magX')
+ax3.plot(time, mag_raw[:, 1], label='magY')
+ax3.plot(time, mag_raw[:, 2], label='magZ')
+ax3.set_xlabel('Time [s]')
+ax3.set_ylabel('Magnetometer data [G]')
+ax3.legend(loc='upper right')
+
+plt.show()
+#endregion
