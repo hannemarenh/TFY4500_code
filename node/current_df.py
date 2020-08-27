@@ -17,4 +17,7 @@ for i in range(0, len(check)):
 
 # Delete nan rows
 df = df.iloc[:, : -1].dropna(axis=0)
+df = df[18000:]
+df = df.reset_index()
+
 df.to_pickle('current_df.pkl')

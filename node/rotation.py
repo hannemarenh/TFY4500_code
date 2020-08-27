@@ -18,6 +18,33 @@ def rotation_matrix_from_vectors(vec1, vec2):
     return rotation_matrix
 
 
+def rotate_to_earth_frame(acc_body, gyro_body, mag_body):
+    """
+    Rotates from body frame of reference to earth frame of reference using rotation matrix.
+    :param acc_body: np.array with shape (len,3) with acceleration data in body frame
+    :param gyro_body: np.array with shape (len,3) with gyroscope data in body frame
+    :param mag_body: np.array with shape (len,3) with magnetometer data in body frame
+    :return: acc, gyro and mag in earth frame
+    """
+    acc_earth_calib = [1, 0, 0]
+    acc_body_calib = acc_body[0, :]
+
+    rot = rotation_matrix_from_vectors(acc_body_calib, acc_earth_calib)
+
+    # Initialize arrays for earth frame
+    acc_earth = acc_body.copy()
+    gyro_earth = gyro_body.copy()
+    mag_earth = mag_body.copy()
+
+    n = len(acc_body[:, 0])
+    for i in range(len(acc[:, 0])):
+        acc_earth[i, :] = rot.dot(acc_body[i, :])
+        gyro_earth[i, :] = rot.dot(gyro_body[i, :])
+        mag_earth[i, :] = rot.dot(mag_body[i, :])
+
+    return acc_earth, gyro_earth, mag_earth
+
+#region Shortcut to do what is done in NodeAlgorithm
 # Load df made in current_df.py
 df = pd.read_pickle('current_df.pkl')
 
@@ -25,8 +52,8 @@ acc = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float)*10**-3
 gyro = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float)*10**-3
 mag = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float)*10**-3
 
-start = 18000
-stop = 20000
+start = 0
+stop = 2000
 acc = acc[start:stop]
 gyro = gyro[start:stop]
 mag = mag[start:stop]
@@ -45,6 +72,7 @@ for i in range(len(acc[:, 0])):
     gyro[i, :] = rot.dot(gyro[i, :])
     mag[i, :] = rot.dot(mag[i, :])
 
+#endregion
 
 #region Plot
 fig, ((ax1, ax2, ax3), (ax4, ax5, ax6),(ax7,ax8,ax9)) = plt.subplots(3,3)

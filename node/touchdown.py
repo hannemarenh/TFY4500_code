@@ -180,6 +180,27 @@ def fourier(y, fs):
     return xf, yf
 
 
+def find_touchdowns(gyro, fs):
+    """
+    Find touchdowns(=when horse leg is on the ground)
+    :param gyro: gyroscope data
+    :return: touchdowns: np.array with 0 where leg is in motion and 1 where leg is at the ground
+    """
+    # Absolute value of gradient of gyro
+    dgyro_abs = np.abs(np.gradient(gyro, axis=0))
+
+    # Filter dgyro
+    order = 1
+    cutOff = 10
+    lp_dgyro_abs = filterLP(order, cutOff, fs, dgyro_abs)
+
+    threshold = 3
+    touchdowns = np.asarray(lp_dgyro_abs[:, 1] <= threshold, dtype=int)
+
+    return touchdowns
+
+
+#region Shortcut to do what is done in NodeAlgrithm
 # Load df made in current_df.py
 df = pd.read_pickle('current_df.pkl')
 
@@ -189,8 +210,8 @@ gyro = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float
 mag = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float)*10**-3
 
 #region Plot raw data
-start = 18000
-stop = 20000
+start = 0
+stop = 2000
 acc, gyro, mag, time = plot_raw_data(start, stop, acc, gyro, mag)
 #endregion
 
@@ -214,4 +235,4 @@ plt.plot(steps)
 plt.plot(dgyro_abs_lp)
 plt.show()
 
-
+#endregion
