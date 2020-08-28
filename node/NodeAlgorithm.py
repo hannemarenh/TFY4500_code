@@ -4,8 +4,9 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from node.result import Result
 from node.rotation import rotate_to_earth_frame
-from node.touchdown import find_touchdowns
-from node.velocity import find_velocity
+from node.touchdown import *
+from node.velocity import *
+from node.position import find_position
 #endregion
 
 
@@ -39,26 +40,35 @@ class NodeAlgorithm:
         """
         Calculate characteristics of leg motion
         :param df: sensor data (containing feature columns) as dataframe
-        :return:
+        :return: result
         """
-        # Rotate from body frame to earth frame
+        # Extract feature columns
         acc_body = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float) * 10 ** -3                 #[g]
         gyro_body = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float) * 10 ** -3       #[dps]
         mag_body = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float) * 10 ** -3                 #[gauss]
 
-        self.acc_earth, self.gyro_earth, self.mag_earth = rotate_to_earth_frame(acc_body, gyro_body, mag_body)
-        touchdowns = find_touchdowns(self.gyro_earth, self.freq)
+        # Rotate to earth frame
+        self.acc_earth, self.gyro_earth, self.mag_earth = rotate_to_earth_frame(acc_body, gyro_body, mag_body, plot_rotation=False)
 
+        # Transform acc data to have SI units
         self.g_to_SI()
 
-        velocity = find_velocity(self.acc_earth, touchdowns, self.freq)
+        # Find touchdowns
+        touchdowns = find_touchdowns_gyro(self.gyro_earth, self.freq)
+        touchdowns_acc = find_touchdowns_acc(self.acc_earth, self.freq)
+
+        # Find velocity
+        velocity = find_velocity(self.acc_earth, touchdowns, self.freq, plot_drift=True)
+        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_earth, self.freq)
+
+        # Find position
+        position = find_position(velocity, touchdowns, self.freq)
 
         return self.result
 
     def g_to_SI(self):
         self.acc_earth *= 9.807     #[m/s/s]
         self.acc_earth -= [9.087, 0, 0]
-
 
 
 

@@ -3,6 +3,36 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
+def check_rotation(acc_earth, acc_body):
+    """
+    Compare the two frames (body and earth).
+    :param acc_earth: Acceleration [g] in earth frame
+    :param acc_body: Acceleration [g] in body frame
+    :return: 0
+    """
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharex=True)
+    ax1.set_title("x direction")
+    # ax1.set_ylabel("Axxeleration [g]")
+    ax1.plot(acc_body[:, 0], 'r', label="Body frame")
+    ax1.plot(acc_earth[:, 0], 'g', label="Earth frame")
+    ax1.legend(loc=1)
+
+    ax2.set_title("y direction")
+    ax2.plot(acc_body[:, 1], 'r', label="Body frame")
+    ax2.plot(acc_earth[:, 1], 'g', label="Earth frame")
+    ax2.legend(loc=1)
+
+    ax3.set_title("z direction")
+    ax3.plot(acc_body[:, 2], 'r', label="Body frame")
+    ax3.plot(acc_earth[:, 2], 'g', label="Earth frame")
+    ax3.legend(loc=1)
+
+    fig.text(0.5, 0.04, 'Sample number', ha='center')
+    fig.text(0.04, 0.5, 'Acceleration [g]', va='center', rotation='vertical')
+    plt.show()
+    return 0
+
+
 def rotation_matrix_from_vectors(vec1, vec2):
     """ Find the rotation matrix that aligns vec1 to vec2
     :param vec1: A 3d "source" vector
@@ -18,12 +48,13 @@ def rotation_matrix_from_vectors(vec1, vec2):
     return rotation_matrix
 
 
-def rotate_to_earth_frame(acc_body, gyro_body, mag_body):
+def rotate_to_earth_frame(acc_body, gyro_body, mag_body, plot_rotation=False):
     """
     Rotates from body frame of reference to earth frame of reference using rotation matrix.
     :param acc_body: np.array with shape (len,3) with acceleration data in body frame
     :param gyro_body: np.array with shape (len,3) with gyroscope data in body frame
     :param mag_body: np.array with shape (len,3) with magnetometer data in body frame
+    :param plot_rotation: Plots acc before and after rotation
     :return: acc, gyro and mag in earth frame
     """
     acc_earth_calib = [1, 0, 0]
@@ -37,96 +68,102 @@ def rotate_to_earth_frame(acc_body, gyro_body, mag_body):
     mag_earth = mag_body.copy()
 
     n = len(acc_body[:, 0])
-    for i in range(len(acc[:, 0])):
+    for i in range(n):
         acc_earth[i, :] = rot.dot(acc_body[i, :])
         gyro_earth[i, :] = rot.dot(gyro_body[i, :])
         mag_earth[i, :] = rot.dot(mag_body[i, :])
 
+    if check_rotation:
+        check_rotation(acc_earth, acc_body)
+
     return acc_earth, gyro_earth, mag_earth
 
+
 #region Shortcut to do what is done in NodeAlgorithm
-# Load df made in current_df.py
-df = pd.read_pickle('current_df.pkl')
+if __name__ == '__main__':
 
-acc = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float)*10**-3
-gyro = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float)*10**-3
-mag = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float)*10**-3
+    # Load df made in current_df.py
+    df = pd.read_pickle('current_df.pkl')
 
-start = 0
-stop = 2000
-acc = acc[start:stop]
-gyro = gyro[start:stop]
-mag = mag[start:stop]
+    acc = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float)*10**-3
+    gyro = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float)*10**-3
+    mag = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float)*10**-3
 
-acc_earth = [1, 0, 0]
-acc_body = acc[0, :]
+    start = 0
+    stop = 2000
+    acc = acc[start:stop]
+    gyro = gyro[start:stop]
+    mag = mag[start:stop]
 
-rot = rotation_matrix_from_vectors(acc_body, acc_earth)
+    acc_earth = [1, 0, 0]
+    acc_body = acc[0, :]
 
-acc_check = acc.copy()
-gyro_check = gyro.copy()
-mag_check = mag.copy()
+    rot = rotation_matrix_from_vectors(acc_body, acc_earth)
 
-for i in range(len(acc[:, 0])):
-    acc[i, :] = rot.dot(acc[i, :])
-    gyro[i, :] = rot.dot(gyro[i, :])
-    mag[i, :] = rot.dot(mag[i, :])
+    acc_check = acc.copy()
+    gyro_check = gyro.copy()
+    mag_check = mag.copy()
 
-#endregion
+    for i in range(len(acc[:, 0])):
+        acc[i, :] = rot.dot(acc[i, :])
+        gyro[i, :] = rot.dot(gyro[i, :])
+        mag[i, :] = rot.dot(mag[i, :])
 
-#region Plot
-fig, ((ax1, ax2, ax3), (ax4, ax5, ax6),(ax7,ax8,ax9)) = plt.subplots(3,3)
-ax1.set_title("AccX")
-ax1.set_ylabel("g")
-ax1.plot(acc_check[:, 0], 'r', label="Body frame")
-ax1.plot(acc[:, 0], 'g', label="Earth frame")
-ax1.legend(loc=1)
+    #endregion
 
-ax2.set_title("AccY")
-ax2.set_ylabel("g")
-ax2.plot(acc_check[:, 1], 'r', label="Body frame")
-ax2.plot(acc[:, 1], 'g', label="Earth frame")
-ax2.legend(loc=1)
+    #region Plot
+    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6),(ax7,ax8,ax9)) = plt.subplots(3,3)
+    ax1.set_title("AccX")
+    ax1.set_ylabel("g")
+    ax1.plot(acc_check[:, 0], 'r', label="Body frame")
+    ax1.plot(acc[:, 0], 'g', label="Earth frame")
+    ax1.legend(loc=1)
 
-ax3.set_title("AccZ")
-ax3.set_ylabel("g")
-ax3.plot(acc_check[:, 2], 'r', label="Body frame")
-ax3.plot(acc[:, 2], 'g', label="Earth frame")
-ax3.legend(loc=1)
+    ax2.set_title("AccY")
+    ax2.set_ylabel("g")
+    ax2.plot(acc_check[:, 1], 'r', label="Body frame")
+    ax2.plot(acc[:, 1], 'g', label="Earth frame")
+    ax2.legend(loc=1)
 
-ax4.set_title("GyroX")
-ax4.set_ylabel("dps")
-ax4.plot(gyro_check[:, 0], 'r', label="Body frame")
-ax4.plot(gyro[:, 0], 'g', label="Earth frame")
-ax4.legend(loc=1)
+    ax3.set_title("AccZ")
+    ax3.set_ylabel("g")
+    ax3.plot(acc_check[:, 2], 'r', label="Body frame")
+    ax3.plot(acc[:, 2], 'g', label="Earth frame")
+    ax3.legend(loc=1)
 
-ax5.set_title("GyroY")
-ax5.set_ylabel("dps")
-ax5.plot(gyro_check[:, 1], 'r', label="Body frame")
-ax5.plot(gyro[:, 1], 'g', label="Earth frame")
-ax5.legend(loc=1)
+    ax4.set_title("GyroX")
+    ax4.set_ylabel("dps")
+    ax4.plot(gyro_check[:, 0], 'r', label="Body frame")
+    ax4.plot(gyro[:, 0], 'g', label="Earth frame")
+    ax4.legend(loc=1)
 
-ax6.set_title("GyroZ")
-ax6.set_ylabel("dps")
-ax6.plot(gyro_check[:, 2], 'r', label="Body frame")
-ax6.plot(gyro[:, 2], 'g', label="Earth frame")
-ax6.legend(loc=1)
+    ax5.set_title("GyroY")
+    ax5.set_ylabel("dps")
+    ax5.plot(gyro_check[:, 1], 'r', label="Body frame")
+    ax5.plot(gyro[:, 1], 'g', label="Earth frame")
+    ax5.legend(loc=1)
 
-ax7.set_title("MagX")
-ax7.set_ylabel("gauss")
-ax7.plot(mag_check[:, 0], 'r', label="Body frame")
-ax7.plot(mag[:, 0], 'g', label="Earth frame")
-ax7.legend(loc=1)
+    ax6.set_title("GyroZ")
+    ax6.set_ylabel("dps")
+    ax6.plot(gyro_check[:, 2], 'r', label="Body frame")
+    ax6.plot(gyro[:, 2], 'g', label="Earth frame")
+    ax6.legend(loc=1)
 
-ax8.set_title("MagY")
-ax8.set_ylabel("gauss")
-ax8.plot(mag_check[:, 1], 'r', label="Body frame")
-ax8.plot(mag[:, 1], 'g', label="Earth frame")
-ax8.legend(loc=1)
+    ax7.set_title("MagX")
+    ax7.set_ylabel("gauss")
+    ax7.plot(mag_check[:, 0], 'r', label="Body frame")
+    ax7.plot(mag[:, 0], 'g', label="Earth frame")
+    ax7.legend(loc=1)
 
-ax9.set_title("MagZ")
-ax9.set_ylabel("gauss")
-ax9.plot(mag_check[:, 2], 'r', label="Body frame")
-ax9.plot(mag[:, 2], 'g', label="Earth frame")
-ax9.legend(loc=1)
+    ax8.set_title("MagY")
+    ax8.set_ylabel("gauss")
+    ax8.plot(mag_check[:, 1], 'r', label="Body frame")
+    ax8.plot(mag[:, 1], 'g', label="Earth frame")
+    ax8.legend(loc=1)
+
+    ax9.set_title("MagZ")
+    ax9.set_ylabel("gauss")
+    ax9.plot(mag_check[:, 2], 'r', label="Body frame")
+    ax9.plot(mag[:, 2], 'g', label="Earth frame")
+    ax9.legend(loc=1)
 #endregion

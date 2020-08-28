@@ -180,9 +180,10 @@ def fourier(y, fs):
     return xf, yf
 
 
-def find_touchdowns(gyro, fs):
+def find_touchdowns_gyro(gyro, fs):
     """
     Find touchdowns(=when horse leg is on the ground)
+    OBS: kan hende det blir dårlige resultater hvis hesten vrir beinet mens den går. gyroY burde gå fint
     :param gyro: gyroscope data
     :return: touchdowns: np.array with 0 where leg is in motion and 1 where leg is at the ground
     """
@@ -200,39 +201,68 @@ def find_touchdowns(gyro, fs):
     return touchdowns
 
 
-#region Shortcut to do what is done in NodeAlgrithm
-# Load df made in current_df.py
-df = pd.read_pickle('current_df.pkl')
+def find_touchdowns_acc(acc, fs):
+    """
+    :param acc: acceleration with shape (len, 3) [m/s/s]
+    :param fs: sampling frequency
+    :return: touchdowns: np.array with 0 where leg is in motion and 1 where leg is at the ground
+    """
+    order = 1
+    cutOff = 5
+
+    accLP = filterLP(order, cutOff, fs, acc)
+
+    # OBS. Only valid for walk. Need different threshold for different gaits...
+    # 1.3) Steps is where envelope of lowpass filtered accX is under a certain threshold
+    threshold = 2.5
+    env = np.abs(signal.hilbert(accLP[:, 0]))
+    envLP = filterLP(order, cutOff, fs, env)
+    touchdowns = np.asarray(envLP <= threshold, dtype=int)
+
+    return touchdowns
 
 
-acc = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float)*10**-3
-gyro = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float)*10**-3
-mag = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float)*10**-3
+def find_touchdown_ai(acc, gyro, mag, fs):
+    touchdowns = np.zeros(acc.shape)
 
-#region Plot raw data
-start = 0
-stop = 2000
-acc, gyro, mag, time = plot_raw_data(start, stop, acc, gyro, mag)
-#endregion
+    return touchdowns
 
 
-# Absolute value of gradient of gyro
-dgyro_abs = np.abs(np.gradient(gyro, axis=0))
+if __name__ == '__main__':
+    #region Shortcut to do what is done in NodeAlgrithm
+    # Load df made in current_df.py
+    df = pd.read_pickle('current_df.pkl')
 
 
-# Filter dgyro
-order = 1
-cutOff = 10
-fs = 100
-dgyro_abs_lp = filterLP(order, cutOff, fs, dgyro_abs)
+    acc = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float)*10**-3
+    gyro = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float)*10**-3
+    mag = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float)*10**-3
 
-threshold = 3
-steps = np.asarray(dgyro_abs_lp[:, 1] <= threshold, dtype=int)
+    #region Plot raw data
+    start = 0
+    stop = 2000
+    acc, gyro, mag, time = plot_raw_data(start, stop, acc, gyro, mag)
+    #endregion
 
-# Plot result
-plt.figure()
-plt.plot(steps)
-plt.plot(dgyro_abs_lp)
-plt.show()
+    touchdowns = np.asarray(gyro[:, 2] > gyro[:, 0], dtype=int)
 
-#endregion
+    # Absolute value of gradient of gyro
+    dgyro_abs = np.abs(np.gradient(gyro, axis=0))
+
+
+    # Filter dgyro
+    order = 1
+    cutOff = 10
+    fs = 100
+    dgyro_abs_lp = filterLP(order, cutOff, fs, dgyro_abs)
+
+    threshold = 3
+    steps = np.asarray(dgyro_abs_lp[:, 1] <= threshold, dtype=int)
+
+    # Plot result
+    plt.figure()
+    plt.plot(steps)
+    plt.plot(dgyro_abs_lp)
+    plt.show()
+
+    #endregion
