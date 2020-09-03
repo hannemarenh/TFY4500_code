@@ -4,18 +4,21 @@ import pandas as pd
 from node.rotation import rotation_matrix_from_vectors
 from scipy import integrate
 import matplotlib.pyplot as plt
+from scipy.integrate import cumtrapz
 from scipy.fft import fft
 
 
 # endregion
 
 
-def remove_drift(array, touchdowns, plot_drift=False):
+def remove_drift(array, touchdowns, fs, plot_drift=False, ylabel='Integrated value'):
     """
     Remove drift after integrating
     :param array: Integrated array to remove drift from [m/s]
     :param touchdowns: np.array with 0 where leg is in motion and 1 where leg is at the ground
+    :param fs: sampling frequency [Hz]
     :param plot_drift: Plots effect of removing drift if true
+    :param ylabel: Label to y axis of plot. Default value is "Integrated value".
     :return: vel: velocity array without drift [m/s]
     """
     # Set marker where motion start and stop
@@ -50,24 +53,42 @@ def remove_drift(array, touchdowns, plot_drift=False):
         step_start = int((start_motion[5] + stop_motion[4]) / 2)
         step_stop = stop_motion[5]
 
+        #fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3)
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharex=True)
+        time = np.linspace(0, (step_stop-step_start) / fs, step_stop-step_start)
+
         ax1.set_title("x direction")
-        ax1.plot(array_check[step_start:step_stop, 0], label="Before ")
-        ax1.plot(array[step_start:step_stop, 0], label="After ")
+        ax1.plot(time, array_check[step_start:step_stop, 0], label="Before ")
+        ax1.plot(time, array[step_start:step_stop, 0], label="After ")
         ax1.legend(loc='upper left')
 
         ax2.set_title("y direction")
-        ax2.plot(array_check[step_start:step_stop, 1], label="Before")
-        ax2.plot(array[step_start:step_stop, 1], label="After ")
+        ax2.plot(time, array_check[step_start:step_stop, 1], label="Before")
+        ax2.plot(time, array[step_start:step_stop, 1], label="After ")
         ax2.legend(loc='upper left')
 
-        ax3.set_title(" z direction")
-        ax3.plot(array_check[step_start:step_stop, 2], label="Before ")
-        ax3.plot(array[step_start:step_stop, 2], label="After ")
+        ax3.set_title("z direction")
+        ax3.plot(time, array_check[step_start:step_stop, 2], label="Before ")
+        ax3.plot(time, array[step_start:step_stop, 2], label="After ")
         ax3.legend(loc='upper left')
+        '''
+        ax4.set_title("Multiple steps, x direction")
+        ax4.plot(array_check[0:step_stop, 0], label="Before ")
+        ax4.plot(array[0:step_stop, 0], label="After ")
+        ax4.legend(loc='upper left')
 
-        fig.text(0.5, 0.04, 'Sample number', ha='center')
-        fig.text(0.04, 0.5, 'Velocity [m/s]', va='center', rotation='vertical')
+        ax5.set_title("Multiple steps, y direction")
+        ax5.plot(array_check[0:step_stop, 1], label="Before")
+        ax5.plot(array[0:step_stop, 1], label="After ")
+        ax5.legend(loc='upper left')
+
+        ax6.set_title("Multiple steps, z direction")
+        ax6.plot(array_check[0:step_stop, 2], label="Before ")
+        ax6.plot(array[0:step_stop, 2], label="After ")
+        ax6.legend(loc='upper left')
+        '''
+        fig.text(0.5, 0.04, 'Time [s]', ha='center')
+        fig.text(0.04, 0.5, ylabel, va='center', rotation='vertical')
         plt.show()
 
         plt.show()
@@ -76,25 +97,37 @@ def remove_drift(array, touchdowns, plot_drift=False):
     return array
 
 
-def find_position(vel, touchdowns, fs):
+def find_position(vel, touchdowns, fs, plot_drift=False):
     """
     Integrate velocity to get position. Removes drift after integration
     :param vel: velocity [m/s]
     :param touchdowns: np.array with 0 where leg is in motion and 1 where leg is at the ground
     :param fs: sampling frequency [Hz]
+    :param plot_drift: Plots effect of removing drift if true
+
     :return: pos: position [m]
     """
     pos = np.zeros((len(vel), 3))
     for i in range(1, len(pos)):
         pos[i, :] = pos[i - 1, :] + vel[i, :] * 1 / fs
 
-        if touchdowns[i] != 0:
-            # pos[i, 0] = 0
-            pos[i, :] = [0, 0, 0]
+        #if touchdowns[i] != 0:
+            #pos[i, 0] = 0
+            #pos[i, :] = [0, 0, 0]
 
     # Remove drift
-    pos = remove_drift(pos, touchdowns)
+    #pos = remove_drift(pos, touchdowns, plot_drift, 'Position [m]')
 
+    return pos
+
+
+def find_position_cumtrapz(vel, touchdowns, fs, plot_drift=False):
+    pos = np.zeros(vel.shape)
+    pos[:, 0] = cumtrapz(vel[:, 0], dx=1 / fs, initial=0)
+    pos[:, 1] = cumtrapz(vel[:, 1], dx=1 / fs, initial=0)
+    pos[:, 2] = cumtrapz(vel[:, 2], dx=1 / fs, initial=0)
+
+    remove_drift(pos, touchdowns, fs, plot_drift, 'Position [m]')
     return pos
 
 

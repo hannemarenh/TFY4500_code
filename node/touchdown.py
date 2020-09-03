@@ -212,12 +212,14 @@ def find_touchdowns_acc(acc, fs):
 
     accLP = filterLP(order, cutOff, fs, acc)
 
+    sumxy = np.sum(accLP[:, :2], axis=1)
     # OBS. Only valid for walk. Need different threshold for different gaits...
     # 1.3) Steps is where envelope of lowpass filtered accX is under a certain threshold
     threshold = 2.5
     env = np.abs(signal.hilbert(accLP[:, 0]))
-    envLP = filterLP(order, cutOff, fs, env)
-    touchdowns = np.asarray(envLP <= threshold, dtype=int)
+    #envLP = filterLP(order, cutOff, fs, env)
+    #touchdowns = np.asarray(envLP <= threshold, dtype=int)
+    touchdowns = np.asarray(env <= threshold, dtype=int)
 
     return touchdowns
 
@@ -226,6 +228,43 @@ def find_touchdown_ai(acc, gyro, mag, fs):
     touchdowns = np.zeros(acc.shape)
 
     return touchdowns
+
+
+def compare_touchdowns(method1, method2, acc, gyro, fs, name1='method 1', name2='method2'):
+    """
+    Compare two methods for finding touchdowns by plotting them toghether, with acc and with gyro
+    :param method1: np.array (true/false) with touchdowns found by method 1
+    :param method2: np.array (true/false) with touchdowns found by method 2
+    :param acc: acceleration data
+    :param gyro: gyroscope data
+    :param fs: sampling frequency
+    :param name1: Name of first method
+    :param name2: Name of second method
+    :return: 0
+    """
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+
+    ax1.plot(method1, 'y', label=name1)
+    ax1.plot(method2, 'm', label=name2)
+    ax1.legend(loc=0)
+
+    ax2.plot(acc[:, 0], 'g--', label="accX")
+    ax2.plot(acc[:, 1], 'b--', label="accY")
+    ax2.plot(acc[:, 2], 'c--', label="accZ")
+    ax2.plot(method1*acc.max(), 'y', label=name1)
+    ax2.plot(method2*acc.max(), 'm', label=name2)
+    ax2.legend(loc=0)
+
+    ax3.plot(gyro[:, 0], 'g--', label="gyroX")
+    ax3.plot(gyro[:, 1], 'b--', label="gyroY")
+    ax3.plot(gyro[:, 2], 'c--', label="gyroZ")
+    ax3.plot(method1*gyro.max(), 'y', label=name1)
+    ax3.plot(method2*gyro.max(), 'm', label=name2)
+    ax3.legend(loc=0)
+
+    plt.show()
+
+    return 0
 
 
 if __name__ == '__main__':

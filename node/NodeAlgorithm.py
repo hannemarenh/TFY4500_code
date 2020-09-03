@@ -2,11 +2,14 @@
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+
 from node.result import Result
 from node.rotation import rotate_to_earth_frame
 from node.touchdown import *
 from node.velocity import *
-from node.position import find_position
+from node.position import *
+from node.animation import animate
+
 #endregion
 
 
@@ -48,8 +51,8 @@ class NodeAlgorithm:
         mag_body = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float) * 10 ** -3                 #[gauss]
 
         # Rotate to earth frame
-        self.acc_earth, self.gyro_earth, self.mag_earth = rotate_to_earth_frame(acc_body, gyro_body, mag_body, plot_rotation=False)
-
+        self.acc_earth, self.gyro_earth, self.mag_earth = rotate_to_earth_frame(acc_body, gyro_body, mag_body,
+                                                                                self.freq, plot_rotation=True)
         # Transform acc data to have SI units
         self.g_to_SI()
 
@@ -57,18 +60,64 @@ class NodeAlgorithm:
         touchdowns = find_touchdowns_gyro(self.gyro_earth, self.freq)
         touchdowns_acc = find_touchdowns_acc(self.acc_earth, self.freq)
 
+        # Compare touchdowns
+        #compare_touchdowns(touchdowns, touchdowns_acc, self.acc_earth, self.gyro_earth, self.freq,
+        #                   name1='gyro-touchdowns', name2='acc-touchdowns')
+
         # Find velocity
-        velocity = find_velocity(self.acc_earth, touchdowns, self.freq, plot_drift=True)
-        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_earth, self.freq)
+        velocity = find_velocity(self.acc_earth, touchdowns, self.freq, plot_drift=False, plot_vel=True)
+        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_earth, self.freq, plot_vel=False)
 
         # Find position
-        position = find_position(velocity, touchdowns, self.freq)
+        position = find_position(velocity, touchdowns, self.freq, plot_drift=False)
+        animate(position)
+        position_cumtrapz = find_position_cumtrapz(velocity_cumtrapz, touchdowns, self.freq, plot_drift=True)
+        animate(position_cumtrapz)
+        np.savetxt(r"C:\\Users\\Hanne Maren\\Documents\\nivo\\python-experiments\\pos.csv", position, delimiter=",")
+
 
         return self.result
 
     def g_to_SI(self):
+        """
+        Convert acceleration data to SI units and linear acceleration (remove gravity)
+        :return:
+        """
         self.acc_earth *= 9.807     #[m/s/s]
         self.acc_earth -= [9.087, 0, 0]
+
+    def plot(self):
+        """
+        Plot measured data
+        """
+        # Make time axis
+        size = len(self.acc_earth)
+        time = np.linspace(0, size / self.freq, size)
+
+        fig, (ax1, ax2, ax3) = plt.subplots(3)
+        ax1.plot(time, self.acc_earth[:, 0], label='accX')
+        ax1.plot(time, self.acc_earth[:, 1], label='accY')
+        ax1.plot(time, self.acc_earth[:, 2], label='accZ')
+        ax1.set_xlabel('Time [s]')
+        ax1.set_ylabel('Acceleration [g]')
+        ax1.legend(loc='upper right')
+
+        ax2.plot(time, self.gyro_earth[:, 0], label='gyroX')
+        ax2.plot(time, self.gyro_earth[:, 1], label='gyroY')
+        ax2.plot(time, self.gyro_earth[:, 2], label='gyroZ')
+        ax2.set_xlabel('Time [s]')
+        ax2.set_ylabel('Gyroscope data [dps]')
+        ax2.legend(loc='upper right')
+
+        ax3.plot(time, self.mag_earth[:, 0], label='magX')
+        ax3.plot(time, self.mag_earth[:, 1], label='magY')
+        ax3.plot(time, self.mag_earth[:, 2], label='magZ')
+        ax3.set_xlabel('Time [s]')
+        ax3.set_ylabel('Magnetometer data [G]')
+        ax3.legend(loc='upper right')
+
+        plt.show()
+
 
 
 
