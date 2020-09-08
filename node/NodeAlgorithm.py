@@ -1,16 +1,18 @@
-#region Import packages and functions
+# region Import packages and functions
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
 from node.result import Result
-from node.rotation import rotate_to_earth_frame
+from node.rotation import rotate_to_earth_frame, change_coordinate_system
 from node.touchdown import *
 from node.velocity import *
 from node.position import *
+from node.orientation import *
 from node.animation import animate
 
-#endregion
+
+# endregion
 
 
 class NodeAlgorithm:
@@ -45,36 +47,52 @@ class NodeAlgorithm:
         :param df: sensor data (containing feature columns) as dataframe
         :return: result
         """
-        # Extract feature columns
-        acc_body = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float) * 10 ** -3                 #[g]
-        gyro_body = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float) * 10 ** -3       #[dps]
-        mag_body = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float) * 10 ** -3                 #[gauss]
+        # region Preparation
+        # Extract feature columns and change to new coordinate system, where z is up, y is out and x is forward
+        # when sensor is placed with USB in and screws out on right foot
+        acc_body = change_coordinate_system(
+            np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float) * 10 ** -3)  # [g]
+        gyro_body = change_coordinate_system(
+            np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float) * 10 ** -3)  # [dps]
+        mag_body = change_coordinate_system(
+            np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float) * 10 ** -3)  # [gauss]
 
         # Rotate to earth frame
         self.acc_earth, self.gyro_earth, self.mag_earth = rotate_to_earth_frame(acc_body, gyro_body, mag_body,
-                                                                                self.freq, plot_rotation=True)
+                                                                                self.freq, plot_rotation=False)
         # Transform acc data to have SI units
         self.g_to_SI()
+        # endregion
 
-        # Find touchdowns
+        # region Find touchdowns
         touchdowns = find_touchdowns_gyro(self.gyro_earth, self.freq)
         touchdowns_acc = find_touchdowns_acc(self.acc_earth, self.freq)
 
         # Compare touchdowns
-        #compare_touchdowns(touchdowns, touchdowns_acc, self.acc_earth, self.gyro_earth, self.freq,
+        # compare_touchdowns(touchdowns, touchdowns_acc, self.acc_earth, self.gyro_earth, self.freq,
         #                   name1='gyro-touchdowns', name2='acc-touchdowns')
 
-        # Find velocity
-        velocity = find_velocity(self.acc_earth, touchdowns, self.freq, plot_drift=False, plot_vel=True)
-        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_earth, self.freq, plot_vel=False)
+        # endregion
 
-        # Find position
-        position = find_position(velocity, touchdowns, self.freq, plot_drift=False)
-        animate(position)
-        position_cumtrapz = find_position_cumtrapz(velocity_cumtrapz, touchdowns, self.freq, plot_drift=True)
-        animate(position_cumtrapz)
-        np.savetxt(r"C:\\Users\\Hanne Maren\\Documents\\nivo\\python-experiments\\pos.csv", position, delimiter=",")
+        # region Find velocity
+        velocity_manual = find_velocity(self.acc_earth, touchdowns, self.freq, plot_drift=True, plot_vel=True)
+        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_earth, self.freq, plot_vel=True)
+        # endregion
 
+        # region Find position
+        # First method: integrate velocity manually
+        position_manual = find_position(velocity_manual, touchdowns, self.freq, plot_drift=False)
+        # animate(position_manual)  # Animation does not look good. Christ
+
+        # Second method: integrate using cumtrapz. By using velocity_cumtrapz, position_cumtrapz increase rapidly,
+        # but by using velocity_manual result is basically the same as pos_man
+        position_cumtrapz = find_position_cumtrapz(velocity_cumtrapz, touchdowns, self.freq, plot_drift=False)
+        # animate(position_cumtrapz)  # Animation does not look good. Christ
+        # endregion
+
+        # region Find orientation
+        orientation = find_orientation_gyro(self.gyro_earth, self.freq)
+        # endregion
 
         return self.result
 
@@ -83,8 +101,8 @@ class NodeAlgorithm:
         Convert acceleration data to SI units and linear acceleration (remove gravity)
         :return:
         """
-        self.acc_earth *= 9.807     #[m/s/s]
-        self.acc_earth -= [9.087, 0, 0]
+        self.acc_earth *= 9.807  # [m/s/s]
+        self.acc_earth += [0, 0, 9.807]
 
     def plot(self):
         """
@@ -117,9 +135,3 @@ class NodeAlgorithm:
         ax3.legend(loc='upper right')
 
         plt.show()
-
-
-
-
-
-

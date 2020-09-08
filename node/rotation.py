@@ -60,7 +60,7 @@ def rotate_to_earth_frame(acc_body, gyro_body, mag_body, fs=100, plot_rotation=F
     :param plot_rotation: Plots acc before and after rotation
     :return: acc, gyro and mag in earth frame
     """
-    acc_earth_calib = [1, 0, 0]
+    acc_earth_calib = [0, 0, -1]
     acc_body_calib = acc_body[0, :]
 
     rot = rotation_matrix_from_vectors(acc_body_calib, acc_earth_calib)
@@ -82,91 +82,19 @@ def rotate_to_earth_frame(acc_body, gyro_body, mag_body, fs=100, plot_rotation=F
     return acc_earth, gyro_earth, mag_earth
 
 
-#region Shortcut to do what is done in NodeAlgorithm
-if __name__ == '__main__':
+def change_coordinate_system(array):
+    """
+    Change to new coordinate system, where z is up, y is out and x is forward
+    when sensor is placed with USB in and screws out on right foot
 
-    # Load df made in current_df.py
-    df = pd.read_pickle('current_df.pkl')
+    Old coordinate system is such that x is down, y is backwards and z is out
+    for the same sensor location
+    :param array: array with dim (len,3) in the old coordinate system
+    :return: new_array: array with dim(len,3) in the new coordinate system
+    """
+    new_array = array.copy()
+    new_array[:, 0] = -array[:, 1]      # -x --> x
+    new_array[:, 1] = array[:, 2]       # z --> y
+    new_array[:, 2] = -array[:, 0]      # -x --> z
 
-    acc = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float)*10**-3
-    gyro = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float)*10**-3
-    mag = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float)*10**-3
-
-    start = 0
-    stop = 2000
-    acc = acc[start:stop]
-    gyro = gyro[start:stop]
-    mag = mag[start:stop]
-
-    acc_earth = [1, 0, 0]
-    acc_body = acc[0, :]
-
-    rot = rotation_matrix_from_vectors(acc_body, acc_earth)
-
-    acc_check = acc.copy()
-    gyro_check = gyro.copy()
-    mag_check = mag.copy()
-
-    for i in range(len(acc[:, 0])):
-        acc[i, :] = rot.dot(acc[i, :])
-        gyro[i, :] = rot.dot(gyro[i, :])
-        mag[i, :] = rot.dot(mag[i, :])
-
-    #endregion
-
-    #region Plot
-    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6),(ax7,ax8,ax9)) = plt.subplots(3,3)
-    ax1.set_title("AccX")
-    ax1.set_ylabel("g")
-    ax1.plot(acc_check[:, 0], 'r', label="Body frame")
-    ax1.plot(acc[:, 0], 'g', label="Earth frame")
-    ax1.legend(loc=1)
-
-    ax2.set_title("AccY")
-    ax2.set_ylabel("g")
-    ax2.plot(acc_check[:, 1], 'r', label="Body frame")
-    ax2.plot(acc[:, 1], 'g', label="Earth frame")
-    ax2.legend(loc=1)
-
-    ax3.set_title("AccZ")
-    ax3.set_ylabel("g")
-    ax3.plot(acc_check[:, 2], 'r', label="Body frame")
-    ax3.plot(acc[:, 2], 'g', label="Earth frame")
-    ax3.legend(loc=1)
-
-    ax4.set_title("GyroX")
-    ax4.set_ylabel("dps")
-    ax4.plot(gyro_check[:, 0], 'r', label="Body frame")
-    ax4.plot(gyro[:, 0], 'g', label="Earth frame")
-    ax4.legend(loc=1)
-
-    ax5.set_title("GyroY")
-    ax5.set_ylabel("dps")
-    ax5.plot(gyro_check[:, 1], 'r', label="Body frame")
-    ax5.plot(gyro[:, 1], 'g', label="Earth frame")
-    ax5.legend(loc=1)
-
-    ax6.set_title("GyroZ")
-    ax6.set_ylabel("dps")
-    ax6.plot(gyro_check[:, 2], 'r', label="Body frame")
-    ax6.plot(gyro[:, 2], 'g', label="Earth frame")
-    ax6.legend(loc=1)
-
-    ax7.set_title("MagX")
-    ax7.set_ylabel("gauss")
-    ax7.plot(mag_check[:, 0], 'r', label="Body frame")
-    ax7.plot(mag[:, 0], 'g', label="Earth frame")
-    ax7.legend(loc=1)
-
-    ax8.set_title("MagY")
-    ax8.set_ylabel("gauss")
-    ax8.plot(mag_check[:, 1], 'r', label="Body frame")
-    ax8.plot(mag[:, 1], 'g', label="Earth frame")
-    ax8.legend(loc=1)
-
-    ax9.set_title("MagZ")
-    ax9.set_ylabel("gauss")
-    ax9.plot(mag_check[:, 2], 'r', label="Body frame")
-    ax9.plot(mag[:, 2], 'g', label="Earth frame")
-    ax9.legend(loc=1)
-#endregion
+    return new_array
