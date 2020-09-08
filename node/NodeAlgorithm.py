@@ -8,7 +8,7 @@ from node.rotation import rotate_to_earth_frame, change_coordinate_system
 from node.touchdown import *
 from node.velocity import *
 from node.position import *
-from node.orientation import *
+from node.orientation import find_orientation
 from node.animation import animate
 
 
@@ -91,7 +91,7 @@ class NodeAlgorithm:
         # endregion
 
         # region Find orientation
-        orientation = find_orientation_gyro(self.gyro_earth, self.freq)
+        orientation = find_orientation(self.acc_earth, self.gyro_earth, self.mag_earth, self.freq)
         # endregion
 
         return self.result
@@ -102,7 +102,7 @@ class NodeAlgorithm:
         :return:
         """
         self.acc_earth *= 9.807  # [m/s/s]
-        self.acc_earth += [0, 0, 9.807]
+        self.acc_earth -= [0, 0, 9.807]
 
     def plot(self):
         """

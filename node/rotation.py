@@ -60,7 +60,7 @@ def rotate_to_earth_frame(acc_body, gyro_body, mag_body, fs=100, plot_rotation=F
     :param plot_rotation: Plots acc before and after rotation
     :return: acc, gyro and mag in earth frame
     """
-    acc_earth_calib = [0, 0, -1]
+    acc_earth_calib = [0, 0, 1]
     acc_body_calib = acc_body[0, :]
 
     rot = rotation_matrix_from_vectors(acc_body_calib, acc_earth_calib)
@@ -84,7 +84,7 @@ def rotate_to_earth_frame(acc_body, gyro_body, mag_body, fs=100, plot_rotation=F
 
 def change_coordinate_system(array):
     """
-    Change to new coordinate system, where z is up, y is out and x is forward
+    Change to new coordinate system, where z is down, y is in and x is forward
     when sensor is placed with USB in and screws out on left foot
 
     Old coordinate system is such that x is down, y is backwards and z is out
@@ -93,8 +93,8 @@ def change_coordinate_system(array):
     :return: new_array: array with dim(len,3) in the new coordinate system
     """
     new_array = array.copy()
-    new_array[:, 0] = -array[:, 1]      # -x --> x
-    new_array[:, 1] = array[:, 2]       # z --> y
-    new_array[:, 2] = -array[:, 0]      # -x --> z
+    new_array[:, 0] = -array[:, 1]       # -y --> x
+    new_array[:, 1] = -array[:, 2]       # -z --> y
+    new_array[:, 2] = array[:, 0]        # x --> z
 
     return new_array
