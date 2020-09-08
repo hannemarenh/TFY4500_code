@@ -49,7 +49,7 @@ class NodeAlgorithm:
         """
         # region Preparation
         # Extract feature columns and change to new coordinate system, where z is up, y is out and x is forward
-        # when sensor is placed with USB in and screws out on right foot
+        # when sensor is placed with USB in and screws out on left foot
         acc_body = change_coordinate_system(
             np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float) * 10 ** -3)  # [g]
         gyro_body = change_coordinate_system(

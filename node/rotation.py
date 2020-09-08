@@ -85,7 +85,7 @@ def rotate_to_earth_frame(acc_body, gyro_body, mag_body, fs=100, plot_rotation=F
 def change_coordinate_system(array):
     """
     Change to new coordinate system, where z is up, y is out and x is forward
-    when sensor is placed with USB in and screws out on right foot
+    when sensor is placed with USB in and screws out on left foot
 
     Old coordinate system is such that x is down, y is backwards and z is out
     for the same sensor location
