@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from node.rotation import change_coordinate_system, rotate_to_earth_frame
-
+from node.touchdown import filterHP, filterLP
 
 def find_rotation_matrix(acc, gyro, mag, fs):
     """
@@ -15,9 +15,14 @@ def find_rotation_matrix(acc, gyro, mag, fs):
     """
     euler_angles = find_orientation(acc, gyro, mag, fs)
 
-    phi = euler_angles[:, 0]
-    theta = euler_angles[:, 1]
-    psi = euler_angles[:, 2]
+    # Low pass filtering on euler angles. Think best result is when both measured data and caluclated angles
+    # are is LP filterend
+
+    lp_euler_angles = filterLP(3, 3, fs, euler_angles)
+
+    phi = lp_euler_angles[:, 0]
+    theta = lp_euler_angles[:, 1]
+    psi = lp_euler_angles[:, 2]
 
     # Test vector with initial orientation pointing down along z axis.
     orientation = np.zeros((len(acc), 3))
@@ -180,7 +185,7 @@ if __name__ == '__main__':
     title1 = r"y_pitch45.csv"
     title2 = r"z_yaw45.csv"
 
-    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title0
+    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title1
     df = pd.read_csv(file, error_bad_lines=False)
 
     # Remove "forskyvede" rows
@@ -214,4 +219,9 @@ if __name__ == '__main__':
 
     # Find rotation matrix Rxyz
     # At this point, a orientation vector is also made for checking inside the function
-    find_rotation_matrix(acc_earth, gyro_earth, mag_earth, freq)
+    lp_acc_earth = filterLP(1, 5, freq, acc_earth)
+    lp_gyro_earth = filterLP(1, 5, freq, gyro_earth)
+    lp_mag_earth = filterLP(1, 5, freq, mag_earth)
+    find_rotation_matrix(lp_acc_earth, lp_gyro_earth, lp_mag_earth, freq)
+
+    #find_rotation_matrix(acc_earth, gyro_earth, mag_earth, freq)

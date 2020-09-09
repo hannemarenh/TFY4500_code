@@ -10,8 +10,6 @@ from node.velocity import *
 from node.position import *
 from node.orientation import find_orientation
 from node.animation import animate
-
-
 # endregion
 
 
@@ -136,3 +134,4 @@ class NodeAlgorithm:
         ax3.legend(loc='upper right')
 
         plt.show()
+
