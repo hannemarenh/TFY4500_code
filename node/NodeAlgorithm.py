@@ -91,6 +91,7 @@ class NodeAlgorithm:
         # endregion
 
         # region Find orientation
+        # OBS. Not ready
         orientation = find_orientation(self.acc_earth, self.gyro_earth, self.mag_earth, self.freq)
         # endregion
 
