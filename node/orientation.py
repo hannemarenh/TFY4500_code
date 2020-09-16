@@ -3,64 +3,98 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from node.rotation import change_coordinate_system, rotate_to_earth_frame
 from node.touchdown import filterHP, filterLP
+from node.animation import plot_orientation, plot_position
+from node.velocity import remove_drift
 
-def find_rotation_matrix(acc, gyro, mag, fs):
+
+def find_orientation(acc, gyro, mag, touchdowns, fs, plot_drift=False):
     """
-    Function to find total rotation matrix by multiplying roll, pitch and yaw rotation matrices
+    Find orientation using complimentary filter
     :param acc: acceleration data [m/s/s]
     :param gyro: gyroscope data [deg/s]
     :param mag: magnetometer data [gauss]
     :param fs: sampling frequency [Hz]
-    :return: Rotation matrix Rxyz
-    """
-    euler_angles = find_orientation(acc, gyro, mag, fs)
-
-    # Low pass filtering on euler angles. Think best result is when both measured data and caluclated angles
-    # are is LP filterend
-
-    lp_euler_angles = filterLP(3, 3, fs, euler_angles)
-
-    phi = lp_euler_angles[:, 0]
-    theta = lp_euler_angles[:, 1]
-    psi = lp_euler_angles[:, 2]
-
-    # Test vector with initial orientation pointing down along z axis.
-    orientation = np.zeros((len(acc), 3))
-    orientation[0, :] = [0, 0, 1]
-
-    Rxyz = np.zeros((len(acc), 3, 3))
-
-    for i in range(1, len(acc)):
-        Rx = np.array([[1, 0, 0], [0, np.cos(phi[i]), np.sin(phi[i])], [0, -np.sin(phi[i]), np.cos(phi[i])]])
-        Ry = np.array([[np.cos(theta[i]), 0, -np.sin(theta[i])], [0, 1, 0], [np.sin(theta[i]), 0, np.cos(theta[i])]])
-        Rz = np.array([[np.cos(psi[i]), np.sin(psi[i]), 0], [-np.sin(psi[i]), np.cos(psi[i]), 0], [0, 0, 1]])
-
-        Rxyz[i, :, :] = (Rx @ Ry) @ Rz
-        orientation[i] = Rxyz[i, :, :].dot(orientation[i - 1])
-
-    return Rxyz
-
-
-def find_orientation_gyro(gyro, fs):
-    """
-    Integrate gyroscope data to find euler angles.
-    :param gyro: gyroscope data [deg/s]
-    :param fs: sampling frequency [Hz]
-    :return: rot: rotation in euler angles [deg]. Phi (roll),theta (pitch) and psi (yaw) for for x, y and z
+    :return: acc_oriented: Acceleration data with orientation calculated by complimentary filter
+             x_orientation: Vector showing orientation for x-axis
+             y_orientation: Vector showing orientation for y-axis
+             z_orientation: Vector showing orientation for z-axis
     """
     # Rotation = [roll, pitch, yaw]
-    rot = np.zeros((len(gyro), 3))
+    angles = np.zeros((len(acc), 3))
+
+    # Constants for filter
+    K1 = 0.98
+    K2 = 1 - K1
+
+    angles_gyro = find_angles_gyro(gyro, touchdowns, fs, plot_drift)
+    angles_acc_mag = find_angles_acc_mag(acc, mag, fs)
+
+    # Complimentary filter
+    # Rotation from acceleration and mag does not make sense.... Use gyro rotation
+    #angles[:, 0] = K1 * angles_gyro[:, 0] + K2 * angles_acc_mag[:, 0]
+    #angles[:, 1] = K1 * angles_gyro[:, 1] + K2 * angles_acc_mag[:, 1]
+    #angles[:, 2] = K1 * angles_gyro[:, 2] + K2 * angles_acc_mag[:, 2]
+
+    angles = angles_gyro     # remove this one if euler angles from acc+mag suddenlty works
+    dangles = np.concatenate((np.array([[0, 0, 0]]), np.diff(angles, axis=0)))   # Find how much angles changes from ponit to point
+
+    # Initialize orientation vectors
+    x_orientation, y_orientation, z_orientation = np.zeros((len(angles), 3)), np.zeros((len(angles), 3)), np.zeros((len(angles), 3))
+
+    # Magnitude of orientation vectors
+    m = 0.1
+    x_orientation[0, :] = [m, 0, 0]
+    y_orientation[0, :] = [0, m, 0]
+    z_orientation[0, :] = [0, 0, m]
+
+    acc_oriented = acc.copy()
+    for i in range(1, len(acc)):
+        # Find rotation matrices for the angle
+        Rx = rotmat_x(dangles[i, 0])
+        Ry = rotmat_y(dangles[i, 1])
+        Rz = rotmat_z(dangles[i, 2])
+
+        # Make total rotation matrix
+        Rzyx = (Rz @ Ry) @ Rx
+
+        # Rotate acceleration data
+        acc_oriented[i, :] = Rzyx.dot(acc[i-1, :])
+
+        # Rotate orientation vectors
+        x_orientation[i, :] = Rzyx.dot(x_orientation[i - 1, :])
+        y_orientation[i, :] = Rzyx.dot(y_orientation[i - 1, :])
+        z_orientation[i, :] = Rzyx.dot(z_orientation[i - 1, :])
+
+    #plot_position(test_pos, x_orientation[start:start+length, :], y_orientation[start:start+length, :], z_orientation[start:start+length, :], fs, fo)
+
+    return acc_oriented, x_orientation, y_orientation, z_orientation
+
+
+def find_angles_gyro(gyro, touchdowns, fs, plot_drift=False):
+    """
+    Integrate gyroscope data to find rotation angles for each axis.
+    :param gyro: gyroscope data [deg/s]
+    :param fs: sampling frequency [Hz]
+    :return: angles: low pass filtered rotation angles around each axis[deg]. Phi (roll),theta (pitch) and psi (yaw) for for x, y and z
+    """
+    # Rotation = [roll, pitch, yaw]
+    angles = np.zeros((len(gyro), 3))
 
     # Integrate acceleration
     for i in range(1, len(gyro)):
-        rot0 = np.asarray(gyro[i - 1, :])
+        # Find current angle in degrees
+        angle0 = np.asarray(gyro[i - 1, :])
         omega = np.asarray(gyro[i, :])
-        rot[i, :] = rot0 + omega * 1 / fs
+        angles[i, :] = angle0 + omega * 1 / fs
 
-    return rot
+    # Remove drift
+    angles = remove_drift(angles, touchdowns, fs, plot_drift, 'Angle [deg]')
+
+    lp_angles = filterLP(3, 3, fs, angles)
+    return lp_angles
 
 
-def find_orientation_acc_mag(acc, mag):
+def find_angles_acc_mag(acc, mag, fs):
     """
     Use accelerometer and magnetometer to find euler angles.
     :param acc: acceleration data [m/s/s]
@@ -68,39 +102,14 @@ def find_orientation_acc_mag(acc, mag):
     :return: rot: rotation in euler angles [deg]. Phi (roll),theta (pitch) and psi (yaw) for for x, y and z
     """
     # Rotation = [roll, pitch, yaw]
-    rot = np.zeros((len(acc), 3))
+    angles = np.zeros((len(acc), 3))
 
-    rot[:, 0] = find_roll(acc)
-    rot[:, 1] = find_pitch(acc)
-    rot[:, 2] = find_yaw(mag)
+    angles[:, 0] = find_roll(acc)
+    angles[:, 1] = find_pitch(acc)
+    angles[:, 2] = find_yaw(mag)
 
-    return rot
-
-
-def find_orientation(acc, gyro, mag, fs):
-    """
-    Find orientation using complimentary filter
-    :param acc: acceleration data [m/s/s]
-    :param gyro: gyroscope data [deg/s]
-    :param mag: magnetometer data [gauss]
-    :param fs: sampling frequency [Hz]
-    :return: rot: rotation in euler angles [deg]. Phi (roll),theta (pitch) and psi (yaw) for for x, y and z
-    """
-    # Rotation = [roll, pitch, yaw]
-    rot = np.zeros((len(acc), 3))
-
-    # Constants for filter
-    K1 = 0.98
-    K2 = 1 - K1
-
-    rot_gyro = find_orientation_gyro(gyro, fs)
-    rot_acc_mag = find_orientation_acc_mag(acc, mag)
-
-    rot[:, 0] = K1 * rot_gyro[:, 0] + K2 * rot_acc_mag[:, 0]
-    rot[:, 1] = K1 * rot_gyro[:, 1] + K2 * rot_acc_mag[:, 1]
-    rot[:, 2] = K1 * rot_gyro[:, 2] + K2 * rot_acc_mag[:, 2]
-
-    return rot
+    lp_angles = filterLP(3, 3, fs, angles)
+    return lp_angles
 
 
 def find_roll(acc):
@@ -174,6 +183,36 @@ def dist(a, b):
     return np.sqrt(a ** 2 + b ** 2)
 
 
+def rotmat_x(degrees):
+    """
+    Function that generates a rotation matrix around x axis for a given angle given in degrees.
+    :param degrees: angle [degrees]
+    :return: Rotation matrix around x axis
+    """
+    rad = np.deg2rad(degrees)
+    return np.array([[1, 0, 0], [0, np.cos(rad), np.sin(rad)], [0, -np.sin(rad), np.cos(rad)]])
+
+
+def rotmat_y(degrees):
+    """
+    Function that generates a rotation matrix around y axis for a given angle given in degrees.
+    :param degrees: angle [degrees]
+    :return: Rotation matrix around y axis
+    """
+    rad = np.deg2rad(degrees)
+    return np.array([[np.cos(rad), 0, -np.sin(rad)], [0, 1, 0], [np.sin(rad), 0, np.cos(rad)]])
+
+
+def rotmat_z(degrees):
+    """
+    Function that generates a rotation matrix around z axis for a given angle given in degrees.
+    :param degrees: angle [degrees]
+    :return: Rotation matrix around z axis
+    """
+    rad = np.deg2rad(degrees)
+    return np.array([[np.cos(rad), np.sin(rad), 0], [-np.sin(rad), np.cos(rad), 0], [0, 0, 1]])
+
+
 if __name__ == '__main__':
     # Load and prepare csv file to dataframe
     # Load csv file. Skip lines where measurements are missing
@@ -185,7 +224,7 @@ if __name__ == '__main__':
     title1 = r"y_pitch45.csv"
     title2 = r"z_yaw45.csv"
 
-    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title1
+    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title2
     df = pd.read_csv(file, error_bad_lines=False)
 
     # Remove "forskyvede" rows
@@ -215,13 +254,12 @@ if __name__ == '__main__':
                                                              freq, plot_rotation=False)
     # Transform acc data to have SI units
     # acc_earth *= 9.807  # [m/s/s]
-    # acc_earth -= [0, 0, 9.807]
+    acc_earth -= [0, 0, 1]
 
     # Find rotation matrix Rxyz
     # At this point, a orientation vector is also made for checking inside the function
     lp_acc_earth = filterLP(1, 5, freq, acc_earth)
     lp_gyro_earth = filterLP(1, 5, freq, gyro_earth)
     lp_mag_earth = filterLP(1, 5, freq, mag_earth)
-    find_rotation_matrix(lp_acc_earth, lp_gyro_earth, lp_mag_earth, freq)
 
-    #find_rotation_matrix(acc_earth, gyro_earth, mag_earth, freq)
+    acc_new, x_ori, y_ori, z_ori = find_orientation(acc_earth, gyro_earth, mag_earth, freq)

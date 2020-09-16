@@ -1,7 +1,78 @@
-import numpy as np
+from numpy import *
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d as p3
 import matplotlib.animation as animation
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.patches import FancyArrowPatch
+from mpl_toolkits.mplot3d import proj3d
+
+
+# Stolen code from https://stackoverflow.com/questions/22867620/putting-arrowheads-on-vectors-in-matplotlibs-3d-plot
+class Arrow3D(FancyArrowPatch):
+    def __init__(self, xs, ys, zs, *args, **kwargs):
+        FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
+        self._verts3d = xs, ys, zs
+
+    def draw(self, renderer):
+        xs3d, ys3d, zs3d = self._verts3d
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+        FancyArrowPatch.draw(self, renderer)
+
+
+def plot_orientation(x_orientation, y_orientation, z_orientation):
+    """
+    Plot orientation vectors for x, y and z direction.
+    :param x_orientation: vector with dim (1,3) giving the orientation vector for x-axis
+    :param y_orientation: vector with dim (1,3) giving the orientation vector for y-axis
+    :param z_orientation: vector with dim (1,3) giving the orientation vector for z-axis
+    :return: 0
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    #Just a point where the orientation vec can originate from. Later this should be position (samples --> pos)
+    #ax.plot(samples[:, 0], samples[:, 1], samples[:, 2], 'o', markersize=10, color='g', alpha=0.2)
+    ax.plot(0, 0, 0, 'o', color='black')
+    for ori in range(0, len(x_orientation)):
+        pos = ori   #Just to move points to separate
+        '''
+        x = Arrow3D([pos, x_orientation[ori, 0] + pos], [0, x_orientation[ori, 1]],
+                    [0, x_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="r")
+        ax.add_artist(x)
+
+        y = Arrow3D([pos, y_orientation[ori, 0]+pos], [0, y_orientation[ori, 1]],
+                    [0, y_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="g")
+        ax.add_artist(y)
+
+        z = Arrow3D([pos, z_orientation[ori, 0]+pos], [0, z_orientation[ori, 1]],
+                    [0, z_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="b")
+        ax.add_artist(z)
+        '''
+        x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
+                    [0, x_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="r")
+        ax.add_artist(x)
+
+        y = Arrow3D([0, y_orientation[ori, 0]], [0, y_orientation[ori, 1]],
+                    [0, y_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="g")
+        ax.add_artist(y)
+
+        z = Arrow3D([0, z_orientation[ori, 0]], [0, z_orientation[ori, 1]],
+                    [0, z_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="b")
+        ax.add_artist(z)
+
+        ax.set_xlabel('x', color='r')
+        ax.set_ylabel('y', color="g")
+        ax.set_zlabel('z', color="b")
+
+        plt.title('Orientation')
+
+        ax.set_xlim([-1, 1.3])
+        ax.set_ylim([-1, 1.3])
+        ax.set_zlim([-1, 1.3])
+
+        plt.draw()
+    plt.show()
 
 
 def update_scatters(iteration, data, scatters):
@@ -30,10 +101,10 @@ def animate(position):
     y = position[:, 1].tolist()
     z = position[:, 2].tolist()
 
-    #Find first non zero element to skip stationaty period at first of animation
-    sum = np.sum([x,y,z],axis=0)
+    # Find first non zero element to skip stationaty period at first of animation
+    sum_pos = sum([x, y, z], axis=0)
     first_nonzero = 0
-    while sum[first_nonzero] == 0:
+    while sum_pos[first_nonzero] == 0:
         first_nonzero += 1
 
     data = []
@@ -70,6 +141,46 @@ def animate(position):
                                   interval=1, blit=False, repeat=False)
 
     plt.show()
-
     return 0
 
+
+def plot_position(position, x_orientation, y_orientation, z_orientation, fs, fo):
+    # Make time axis
+    size = len(position)
+    ori_points = [int(n*fs/fo) for n in range(int(size*fo/fs))]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    for i in range(0, len(position)):
+        ax.plot(position[i, 0], position[i, 1], position[i, 2], 'o', color='black')
+
+        if i in ori_points:
+            x = Arrow3D([position[i, 0], x_orientation[i, 0] + position[i, 0]],
+                        [position[i, 1], x_orientation[i, 1] + position[i, 1]],
+                        [position[i, 2], x_orientation[i, 2] + position[i, 2]],
+                        mutation_scale=10, lw=1, arrowstyle="-|>", color="r")
+            ax.add_artist(x)
+
+            y = Arrow3D([position[i, 0], y_orientation[i, 0] + position[i, 0]],
+                        [position[i, 1], y_orientation[i, 1] + position[i, 1]],
+                        [position[i, 2], y_orientation[i, 2] + position[i, 2]],
+                        mutation_scale=10, lw=1, arrowstyle="-|>", color="g")
+            ax.add_artist(y)
+
+            z = Arrow3D([position[i, 0], z_orientation[i, 0] + position[i, 0]],
+                        [position[i, 1], z_orientation[i, 1] + position[i, 1]],
+                        [position[i, 2], z_orientation[i, 2] + position[i, 2]],
+                        mutation_scale=10, lw=1, arrowstyle="-|>", color="b")
+            ax.add_artist(z)
+
+        ax.set_xlabel('x', color='r')
+        ax.set_ylabel('y', color="g")
+        ax.set_zlabel('z', color="b")
+
+        ax.set_xlim([position[:, 0].min(), position[:, 0].max()])
+        ax.set_ylim([position[:, 1].min(), position[:, 1].max()])
+        ax.set_zlim([position[:, 2].min(), position[:, 2].max()])
+
+        plt.draw()
+    plt.show()

@@ -9,7 +9,7 @@ from node.touchdown import *
 from node.velocity import *
 from node.position import *
 from node.orientation import find_orientation
-from node.animation import animate
+from node.animation import animate, plot_position
 # endregion
 
 
@@ -17,6 +17,7 @@ class NodeAlgorithm:
     # Default feature columns (name of what the sensor measures)
     feature_columns = ["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "mag_x", "mag_y", "mag_z"]
     acc_earth = np.empty([2, 2], dtype=float)
+    acc_ori = np.empty([2, 2], dtype=float)
     gyro_earth = np.empty([2, 2], dtype=float)
     mag_earth = np.empty([2, 2], dtype=float)
 
@@ -58,8 +59,10 @@ class NodeAlgorithm:
         # Rotate to earth frame
         self.acc_earth, self.gyro_earth, self.mag_earth = rotate_to_earth_frame(acc_body, gyro_body, mag_body,
                                                                                 self.freq, plot_rotation=False)
-        # Transform acc data to have SI units
-        self.g_to_SI()
+
+        # Remove gravity
+        self.acc_earth -= [0, 0, 1]
+
         # endregion
 
         # region Find touchdowns
@@ -72,9 +75,23 @@ class NodeAlgorithm:
 
         # endregion
 
+        # region Find orientation
+        # Low pass filter data
+        lp_acc_earth = filterLP(1, 5, self.freq, self.acc_earth)
+        lp_gyro_earth = filterLP(1, 5, self.freq, self.gyro_earth)
+        lp_mag_earth = filterLP(1, 5, self.freq, self.mag_earth)
+
+        #Get better results by using lp filtered data!!
+        self.acc_ori, x_ori, y_ori, z_ori = find_orientation(self.acc_earth, self.gyro_earth, self.mag_earth, touchdowns, self.freq, plot_drift=True)
+
+        # Transform acc data to have SI units
+        self.g_to_SI()
+        # endregion
+
+
         # region Find velocity
-        velocity_manual = find_velocity(self.acc_earth, touchdowns, self.freq, plot_drift=True, plot_vel=True)
-        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_earth, self.freq, plot_vel=True)
+        velocity_manual = find_velocity(self.acc_ori, touchdowns, self.freq, plot_drift=False, plot_vel=False)
+        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_ori, self.freq, plot_vel=False)
         # endregion
 
         # region Find position
@@ -85,12 +102,11 @@ class NodeAlgorithm:
         # Second method: integrate using cumtrapz. By using velocity_cumtrapz, position_cumtrapz increase rapidly,
         # but by using velocity_manual result is basically the same as pos_man
         position_cumtrapz = find_position_cumtrapz(velocity_cumtrapz, touchdowns, self.freq, plot_drift=False)
-        # animate(position_cumtrapz)  # Animation does not look good. Christ
-        # endregion
 
-        # region Find orientation
-        # OBS. Not ready
-        orientation = find_orientation(self.acc_earth, self.gyro_earth, self.mag_earth, self.freq)
+        # animate(position_cumtrapz)  # Animation does not look good. Christ
+
+        fo = 10     # Frequency of showing orientation in position plot [Hz]
+        plot_position(position_manual, x_ori, y_ori, z_ori, self.freq, fo)
         # endregion
 
         return self.result
@@ -101,7 +117,7 @@ class NodeAlgorithm:
         :return:
         """
         self.acc_earth *= 9.807  # [m/s/s]
-        self.acc_earth -= [0, 0, 9.807]
+        self.acc_ori *= 9.807  # [m/s/s]
 
     def plot(self):
         """
