@@ -18,6 +18,10 @@ def remove_drift(array, touchdowns, fs, plot_drift=False, ylabel='Integrated val
     start_motion = np.asarray(np.where(diff == -1)).flatten()  # Last index with zero value
     stop_motion = np.asarray(np.where(diff == 1)).flatten()  # Last index with non-zero value
 
+    #If there are no touchdowns, original array os returned
+    if(len(start_motion) == 0):
+        return array
+
     # Makes sure starting motion in the beginning, and stopping at the end
     if stop_motion[0] < start_motion[0]:
         start_motion = np.concatenate([[0], start_motion])

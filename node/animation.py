@@ -36,42 +36,78 @@ def plot_orientation(x_orientation, y_orientation, z_orientation):
     ax.plot(0, 0, 0, 'o', color='black')
     for ori in range(0, len(x_orientation)):
         pos = ori   #Just to move points to separate
-        '''
-        x = Arrow3D([pos, x_orientation[ori, 0] + pos], [0, x_orientation[ori, 1]],
-                    [0, x_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="r")
-        ax.add_artist(x)
+        if ori==0:
+            x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
+                        [0, x_orientation[ori, 2]], mutation_scale=20, lw=1, arrowstyle="-|>", color="r")
+            ax.add_artist(x)
 
-        y = Arrow3D([pos, y_orientation[ori, 0]+pos], [0, y_orientation[ori, 1]],
-                    [0, y_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="g")
-        ax.add_artist(y)
+            y = Arrow3D([0, y_orientation[ori, 0]], [0, y_orientation[ori, 1]],
+                        [0, y_orientation[ori, 2]], mutation_scale=20, lw=1, arrowstyle="-|>", color="g")
+            ax.add_artist(y)
 
-        z = Arrow3D([pos, z_orientation[ori, 0]+pos], [0, z_orientation[ori, 1]],
-                    [0, z_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="b")
-        ax.add_artist(z)
-        '''
-        x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
-                    [0, x_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="r")
-        ax.add_artist(x)
+            z = Arrow3D([0, z_orientation[ori, 0]], [0, z_orientation[ori, 1]],
+                        [0, z_orientation[ori, 2]], mutation_scale=20, lw=1, arrowstyle="-|>", color="b")
+            ax.add_artist(z)
 
-        y = Arrow3D([0, y_orientation[ori, 0]], [0, y_orientation[ori, 1]],
-                    [0, y_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="g")
-        ax.add_artist(y)
+            ax.set_xlabel('x', color='r')
+            ax.set_ylabel('y', color="g")
+            ax.set_zlabel('z', color="b")
 
-        z = Arrow3D([0, z_orientation[ori, 0]], [0, z_orientation[ori, 1]],
-                    [0, z_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="b")
-        ax.add_artist(z)
+            plt.title('Orientation')
 
-        ax.set_xlabel('x', color='r')
-        ax.set_ylabel('y', color="g")
-        ax.set_zlabel('z', color="b")
+            ax.set_xlim([-1, 1.3])
+            ax.set_ylim([-1, 1.3])
+            ax.set_zlim([-1, 1.3])
 
-        plt.title('Orientation')
+            plt.draw()
+        elif(ori==len(x_orientation)-1):
+            x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
+                        [0, x_orientation[ori, 2]], mutation_scale=10, lw=1, arrowstyle="-[", color="r")
+            ax.add_artist(x)
 
-        ax.set_xlim([-1, 1.3])
-        ax.set_ylim([-1, 1.3])
-        ax.set_zlim([-1, 1.3])
+            y = Arrow3D([0, y_orientation[ori, 0]], [0, y_orientation[ori, 1]],
+                        [0, y_orientation[ori, 2]], mutation_scale=10, lw=1, arrowstyle="-[", color="g")
+            ax.add_artist(y)
 
-        plt.draw()
+            z = Arrow3D([0, z_orientation[ori, 0]], [0, z_orientation[ori, 1]],
+                        [0, z_orientation[ori, 2]], mutation_scale=10, lw=1, arrowstyle="-[", color="b")
+            ax.add_artist(z)
+
+            ax.set_xlabel('x', color='r')
+            ax.set_ylabel('y', color="g")
+            ax.set_zlabel('z', color="b")
+
+            plt.title('Orientation')
+
+            ax.set_xlim([-1, 1.3])
+            ax.set_ylim([-1, 1.3])
+            ax.set_zlim([-1, 1.3])
+
+            plt.draw()
+        else:
+            x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
+                        [0, x_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="r")
+            ax.add_artist(x)
+
+            y = Arrow3D([0, y_orientation[ori, 0]], [0, y_orientation[ori, 1]],
+                        [0, y_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="g")
+            ax.add_artist(y)
+
+            z = Arrow3D([0, z_orientation[ori, 0]], [0, z_orientation[ori, 1]],
+                        [0, z_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="b")
+            ax.add_artist(z)
+
+            ax.set_xlabel('x', color='r')
+            ax.set_ylabel('y', color="g")
+            ax.set_zlabel('z', color="b")
+
+            plt.title('Orientation')
+
+            ax.set_xlim([-1, 1.3])
+            ax.set_ylim([-1, 1.3])
+            ax.set_zlim([-1, 1.3])
+
+            plt.draw()
     plt.show()
 
 

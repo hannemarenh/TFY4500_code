@@ -77,12 +77,13 @@ class NodeAlgorithm:
 
         # region Find orientation
         # Low pass filter data
-        lp_acc_earth = filterLP(1, 5, self.freq, self.acc_earth)
-        lp_gyro_earth = filterLP(1, 5, self.freq, self.gyro_earth)
-        lp_mag_earth = filterLP(1, 5, self.freq, self.mag_earth)
+        self.acc_earth = filterLP(1, 5, self.freq, self.acc_earth)
+        self.gyro_earth = filterLP(1, 5, self.freq, self.gyro_earth)
+        self.mag_earth = filterLP(1, 5, self.freq, self.mag_earth)
 
-        #Get better results by using lp filtered data!!
-        self.acc_ori, x_ori, y_ori, z_ori = find_orientation(self.acc_earth, self.gyro_earth, self.mag_earth, touchdowns, self.freq, plot_drift=True)
+        # Get better results by using lp filtered data!!
+        self.acc_ori, x_ori, y_ori, z_ori = find_orientation(self.acc_earth, self.gyro_earth, self.mag_earth,
+                                                             touchdowns, self.freq, plot_drift=True)
 
         # Transform acc data to have SI units
         self.g_to_SI()

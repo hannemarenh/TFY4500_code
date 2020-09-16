@@ -65,7 +65,10 @@ def find_orientation(acc, gyro, mag, touchdowns, fs, plot_drift=False):
         y_orientation[i, :] = Rzyx.dot(y_orientation[i - 1, :])
         z_orientation[i, :] = Rzyx.dot(z_orientation[i - 1, :])
 
-    #plot_position(test_pos, x_orientation[start:start+length, :], y_orientation[start:start+length, :], z_orientation[start:start+length, :], fs, fo)
+    # Code for checking orientation (using code from this file!!)
+    #start= 370
+    #length=10
+    #plot_orientation(x_orientation[start:start+length, :], y_orientation[start:start+length, :], z_orientation[start:start+length, :])
 
     return acc_oriented, x_orientation, y_orientation, z_orientation
 
@@ -190,7 +193,7 @@ def rotmat_x(degrees):
     :return: Rotation matrix around x axis
     """
     rad = np.deg2rad(degrees)
-    return np.array([[1, 0, 0], [0, np.cos(rad), np.sin(rad)], [0, -np.sin(rad), np.cos(rad)]])
+    return np.array([[1, 0, 0], [0, np.cos(rad), -np.sin(rad)], [0, np.sin(rad), np.cos(rad)]])
 
 
 def rotmat_y(degrees):
@@ -200,7 +203,7 @@ def rotmat_y(degrees):
     :return: Rotation matrix around y axis
     """
     rad = np.deg2rad(degrees)
-    return np.array([[np.cos(rad), 0, -np.sin(rad)], [0, 1, 0], [np.sin(rad), 0, np.cos(rad)]])
+    return np.array([[np.cos(rad), 0, np.sin(rad)], [0, 1, 0], [-np.sin(rad), 0, np.cos(rad)]])
 
 
 def rotmat_z(degrees):
@@ -210,7 +213,7 @@ def rotmat_z(degrees):
     :return: Rotation matrix around z axis
     """
     rad = np.deg2rad(degrees)
-    return np.array([[np.cos(rad), np.sin(rad), 0], [-np.sin(rad), np.cos(rad), 0], [0, 0, 1]])
+    return np.array([[np.cos(rad), -np.sin(rad), 0], [np.sin(rad), np.cos(rad), 0], [0, 0, 1]])
 
 
 if __name__ == '__main__':
@@ -224,7 +227,7 @@ if __name__ == '__main__':
     title1 = r"y_pitch45.csv"
     title2 = r"z_yaw45.csv"
 
-    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title2
+    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title0
     df = pd.read_csv(file, error_bad_lines=False)
 
     # Remove "forskyvede" rows
@@ -262,4 +265,5 @@ if __name__ == '__main__':
     lp_gyro_earth = filterLP(1, 5, freq, gyro_earth)
     lp_mag_earth = filterLP(1, 5, freq, mag_earth)
 
-    acc_new, x_ori, y_ori, z_ori = find_orientation(acc_earth, gyro_earth, mag_earth, freq)
+    touchdowns = np.zeros(len(acc_earth))
+    acc_new, x_ori, y_ori, z_ori = find_orientation(acc_earth, gyro_earth, mag_earth, touchdowns, freq, plot_drift=True)
