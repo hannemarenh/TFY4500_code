@@ -47,7 +47,7 @@ class NodeAlgorithm:
         :return: result
         """
         # region Preparation
-        # Extract feature columns and change to new coordinate system, where z is up, y is out and x is forward
+        # Extract feature columns and change to new coordinate system, where z is down, y is in and x is forward
         # when sensor is placed with USB in and screws out on left foot
         acc_body = change_coordinate_system(
             np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float) * 10 ** -3)  # [g]
@@ -88,7 +88,6 @@ class NodeAlgorithm:
         # Transform acc data to have SI units
         self.g_to_SI()
         # endregion
-
 
         # region Find velocity
         velocity_manual = find_velocity(self.acc_ori, touchdowns, self.freq, plot_drift=False, plot_vel=False)

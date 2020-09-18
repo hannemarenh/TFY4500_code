@@ -65,11 +65,21 @@ def find_orientation(acc, gyro, mag, touchdowns, fs, plot_drift=False):
         y_orientation[i, :] = Rzyx.dot(y_orientation[i - 1, :])
         z_orientation[i, :] = Rzyx.dot(z_orientation[i - 1, :])
 
+    """
     # Code for checking orientation (using code from this file!!)
-    #start= 370
-    #length=10
-    #plot_orientation(x_orientation[start:start+length, :], y_orientation[start:start+length, :], z_orientation[start:start+length, :])
+    plt.plot(angles[:, 0], label="x rotation, roll (phi)")
+    plt.plot(angles[:, 1], label="y rotation, pitch (theta)")
+    plt.plot(angles[:, 2], label="z rotation, yaw (psi)")
+    plt.ylabel('Rotation [deg]')
+    plt.xlabel('Sample')
+    plt.legend()
+    plt.title('z rotation, yaw')
+    plt.show()
 
+    start = 330
+    end = 470
+    plot_orientation(x_orientation[start:end, :], y_orientation[start:end, :], z_orientation[start:end, :])
+    """
     return acc_oriented, x_orientation, y_orientation, z_orientation
 
 
@@ -86,9 +96,13 @@ def find_angles_gyro(gyro, touchdowns, fs, plot_drift=False):
     # Integrate acceleration
     for i in range(1, len(gyro)):
         # Find current angle in degrees
-        angle0 = np.asarray(gyro[i - 1, :])
+        angle0 = np.asarray(angles[i - 1, :])
         omega = np.asarray(gyro[i, :])
         angles[i, :] = angle0 + omega * 1 / fs
+
+        # Force rotation to be zero when foot is touching ground
+        if touchdowns[i] != 0:
+            angles[i, :] = [0, 0, 0]
 
     # Remove drift
     angles = remove_drift(angles, touchdowns, fs, plot_drift, 'Angle [deg]')
@@ -227,7 +241,7 @@ if __name__ == '__main__':
     title1 = r"y_pitch45.csv"
     title2 = r"z_yaw45.csv"
 
-    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title0
+    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title2
     df = pd.read_csv(file, error_bad_lines=False)
 
     # Remove "forskyvede" rows
@@ -243,7 +257,7 @@ if __name__ == '__main__':
 
     freq = 100  # [Hz]
 
-    # Extract feature columns and change to new coordinate system, where z is up, y is out and x is forward
+    # Extract feature columns and change to new coordinate system, where z is down, y is in and x is forward
     # when sensor is placed with USB in and screws out on left foot
     acc_body = change_coordinate_system(
         np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float) * 10 ** -3)  # [g]
@@ -267,3 +281,11 @@ if __name__ == '__main__':
 
     touchdowns = np.zeros(len(acc_earth))
     acc_new, x_ori, y_ori, z_ori = find_orientation(acc_earth, gyro_earth, mag_earth, touchdowns, freq, plot_drift=True)
+
+    """
+plt.plot(angles[:,0],  label="x rotation, roll (phi)")
+plt.plot(angles[:,1],  label="y rotation, pitch (theta)")
+plt.plot(angles[:,2],  label="z rotation, yaw (psi)")
+plt.legend()
+plt.title('Pitch check')
+"""

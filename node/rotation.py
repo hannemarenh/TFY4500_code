@@ -92,7 +92,7 @@ def change_coordinate_system(array):
     :param array: array with dim (len,3) in the old coordinate system
     :return: new_array: array with dim(len,3) in the new coordinate system
     """
-    new_array = array.copy()
+    new_array = np.zeros((len(array), 3))
     new_array[:, 0] = -array[:, 1]       # -y --> x
     new_array[:, 1] = -array[:, 2]       # -z --> y
     new_array[:, 2] = array[:, 0]        # x --> z

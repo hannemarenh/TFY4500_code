@@ -22,7 +22,7 @@ class Arrow3D(FancyArrowPatch):
 
 def plot_orientation(x_orientation, y_orientation, z_orientation):
     """
-    Plot orientation vectors for x, y and z direction.
+    Plot orientation vectors for x, y and z direction. Start orientation is black, end orientation is magneta with big arrow
     :param x_orientation: vector with dim (1,3) giving the orientation vector for x-axis
     :param y_orientation: vector with dim (1,3) giving the orientation vector for y-axis
     :param z_orientation: vector with dim (1,3) giving the orientation vector for z-axis
@@ -31,57 +31,52 @@ def plot_orientation(x_orientation, y_orientation, z_orientation):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    #Just a point where the orientation vec can originate from. Later this should be position (samples --> pos)
-    #ax.plot(samples[:, 0], samples[:, 1], samples[:, 2], 'o', markersize=10, color='g', alpha=0.2)
+    #Just a point where the orientation vec can originate from.
     ax.plot(0, 0, 0, 'o', color='black')
     for ori in range(0, len(x_orientation)):
-        pos = ori   #Just to move points to separate
-        if ori==0:
+        if ori == 0:
             x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
-                        [0, x_orientation[ori, 2]], mutation_scale=20, lw=1, arrowstyle="-|>", color="r")
+                        [0, x_orientation[ori, 2]], mutation_scale=20, lw=1, arrowstyle="-|>", color="k")
             ax.add_artist(x)
 
             y = Arrow3D([0, y_orientation[ori, 0]], [0, y_orientation[ori, 1]],
-                        [0, y_orientation[ori, 2]], mutation_scale=20, lw=1, arrowstyle="-|>", color="g")
+                        [0, y_orientation[ori, 2]], mutation_scale=20, lw=1, arrowstyle="-|>", color="k")
             ax.add_artist(y)
 
             z = Arrow3D([0, z_orientation[ori, 0]], [0, z_orientation[ori, 1]],
-                        [0, z_orientation[ori, 2]], mutation_scale=20, lw=1, arrowstyle="-|>", color="b")
+                        [0, z_orientation[ori, 2]], mutation_scale=20, lw=1, arrowstyle="-|>", color="k")
             ax.add_artist(z)
 
             ax.set_xlabel('x', color='r')
             ax.set_ylabel('y', color="g")
             ax.set_zlabel('z', color="b")
 
-            plt.title('Orientation')
-
-            ax.set_xlim([-1, 1.3])
-            ax.set_ylim([-1, 1.3])
-            ax.set_zlim([-1, 1.3])
+            ax.set_xlim([-1.1, 1.1])
+            ax.set_ylim([-1.1, 1.1])
+            ax.set_zlim([-1.1, 1.1])
 
             plt.draw()
-        elif(ori==len(x_orientation)-1):
+
+        elif ori==len(x_orientation)-1:
             x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
-                        [0, x_orientation[ori, 2]], mutation_scale=10, lw=1, arrowstyle="-[", color="r")
+                        [0, x_orientation[ori, 2]], mutation_scale=40, lw=1, arrowstyle="-|>", color="m")
             ax.add_artist(x)
 
             y = Arrow3D([0, y_orientation[ori, 0]], [0, y_orientation[ori, 1]],
-                        [0, y_orientation[ori, 2]], mutation_scale=10, lw=1, arrowstyle="-[", color="g")
+                        [0, y_orientation[ori, 2]], mutation_scale=40, lw=1, arrowstyle="-|>", color="m")
             ax.add_artist(y)
 
             z = Arrow3D([0, z_orientation[ori, 0]], [0, z_orientation[ori, 1]],
-                        [0, z_orientation[ori, 2]], mutation_scale=10, lw=1, arrowstyle="-[", color="b")
+                        [0, z_orientation[ori, 2]], mutation_scale=40, lw=1, arrowstyle="-|>", color="m")
             ax.add_artist(z)
 
             ax.set_xlabel('x', color='r')
             ax.set_ylabel('y', color="g")
             ax.set_zlabel('z', color="b")
 
-            plt.title('Orientation')
-
-            ax.set_xlim([-1, 1.3])
-            ax.set_ylim([-1, 1.3])
-            ax.set_zlim([-1, 1.3])
+            ax.set_xlim([-1.1, 1.1])
+            ax.set_ylim([-1.1, 1.1])
+            ax.set_zlim([-1.1, 1.1])
 
             plt.draw()
         else:
@@ -101,11 +96,9 @@ def plot_orientation(x_orientation, y_orientation, z_orientation):
             ax.set_ylabel('y', color="g")
             ax.set_zlabel('z', color="b")
 
-            plt.title('Orientation')
-
-            ax.set_xlim([-1, 1.3])
-            ax.set_ylim([-1, 1.3])
-            ax.set_zlim([-1, 1.3])
+            ax.set_xlim([-1.1, 1.1])
+            ax.set_ylim([-1.1, 1.1])
+            ax.set_zlim([-1.1, 1.1])
 
             plt.draw()
     plt.show()
