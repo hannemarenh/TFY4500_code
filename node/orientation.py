@@ -5,6 +5,8 @@ from node.rotation import change_coordinate_system, rotate_to_earth_frame
 from node.touchdown import filterHP, filterLP
 from node.animation import plot_orientation, plot_position
 from node.velocity import remove_drift
+from node.gait_tracking import ahrs
+from node.gait_tracking.quaternion_utils import *
 
 
 def find_orientation(acc, gyro, mag, touchdowns, fs, plot_drift=False):
@@ -26,6 +28,9 @@ def find_orientation(acc, gyro, mag, touchdowns, fs, plot_drift=False):
     K1 = 0.98
     K2 = 1 - K1
 
+    quat_acc_gyro_magn, quat_acc_gyro = find_quaternions(acc, gyro, mag, fs, touchdowns)
+    R = quaternion_to_rotmat(quat_acc_gyro_magn)
+
     angles_gyro = find_angles_gyro(gyro, touchdowns, fs, plot_drift)
     angles_acc_mag = find_angles_acc_mag(acc, mag, fs)
 
@@ -35,20 +40,23 @@ def find_orientation(acc, gyro, mag, touchdowns, fs, plot_drift=False):
     #angles[:, 1] = K1 * angles_gyro[:, 1] + K2 * angles_acc_mag[:, 1]
     #angles[:, 2] = K1 * angles_gyro[:, 2] + K2 * angles_acc_mag[:, 2]
 
-    angles = angles_gyro     # remove this one if euler angles from acc+mag suddenlty works
+    angles = angles_gyro                                                         # remove this one if euler angles from acc+mag suddenlty works
     dangles = np.concatenate((np.array([[0, 0, 0]]), np.diff(angles, axis=0)))   # Find how much angles changes from ponit to point
 
     # Initialize orientation vectors
     x_orientation, y_orientation, z_orientation = np.zeros((len(angles), 3)), np.zeros((len(angles), 3)), np.zeros((len(angles), 3))
 
     # Magnitude of orientation vectors
-    m = 0.1
+    m = 1
     x_orientation[0, :] = [m, 0, 0]
     y_orientation[0, :] = [0, m, 0]
     z_orientation[0, :] = [0, 0, m]
 
-    acc_oriented = acc.copy()
+    acc_oriented = np.zeros((len(acc), 3))
+    acc_oriented[0, :] = R[:, :, 0].dot(acc[0, :])
     for i in range(1, len(acc)):
+        '''
+        Euler angles
         # Find rotation matrices for the angle
         Rx = rotmat_x(dangles[i, 0])
         Ry = rotmat_y(dangles[i, 1])
@@ -59,11 +67,20 @@ def find_orientation(acc, gyro, mag, touchdowns, fs, plot_drift=False):
 
         # Rotate acceleration data
         acc_oriented[i, :] = Rzyx.dot(acc[i-1, :])
+        
 
         # Rotate orientation vectors
         x_orientation[i, :] = Rzyx.dot(x_orientation[i - 1, :])
         y_orientation[i, :] = Rzyx.dot(y_orientation[i - 1, :])
         z_orientation[i, :] = Rzyx.dot(z_orientation[i - 1, :])
+        '''
+        #Quaternions
+        if i==225:
+            plot_orientation(x_orientation[0:225 ,:], y_orientation[0:225 ,:], z_orientation[0:225 ,:])
+        acc_oriented[i, :] = R[:, :, i].dot(acc[0, :])
+        x_orientation[i, :] = R[:, :, i].dot(x_orientation[0, :])
+        y_orientation[i, :] = R[:, :, i].dot(y_orientation[0, :])
+        z_orientation[i, :] = R[:, :, i].dot(z_orientation[0, :])
 
     """
     # Code for checking orientation (using code from this file!!)
@@ -73,14 +90,48 @@ def find_orientation(acc, gyro, mag, touchdowns, fs, plot_drift=False):
     plt.ylabel('Rotation [deg]')
     plt.xlabel('Sample')
     plt.legend()
-    plt.title('z rotation, yaw')
     plt.show()
 
-    start = 330
-    end = 470
+    start = 225
+    end = 300
     plot_orientation(x_orientation[start:end, :], y_orientation[start:end, :], z_orientation[start:end, :])
     """
+
     return acc_oriented, x_orientation, y_orientation, z_orientation
+
+
+def find_quaternions(acc, gyro, mag, fs, touchdowns=None):
+    # Computed using AHRS (attitude and heading reference system) algorithm
+    initial_orientation = [1, 0, 0, 0]
+    init_period = 2
+    #ran = range(df.index.min(), df[df["time"] <= df.iloc[0]["time"] + init_period].index.max())
+
+    quat_acc_gyro_mag = []
+    quat_acc_gyro = []
+    alg_acc_gyro_mag = ahrs.AHRS(sample_period=1 / fs, kp=1, kp_init=1, initial_orientation=initial_orientation)
+    alg_acc_gyro = ahrs.AHRS(sample_period=1 / fs, kp=1, kp_init=1, initial_orientation=initial_orientation)
+
+    # initial convergence
+    # for i in range(0, 2000):
+    #    alg.update_imu(np.array([0, 0, 0]),
+    #                   np.array([np.mean(acc[ran, 0]), np.mean(acc[ran, 1]), np.mean(acc[ran, 2])]))
+
+    # for all data
+    for i in np.arange(len(acc)):
+        if touchdowns is None:
+            alg_acc_gyro_mag.kp = 0
+            alg_acc_gyro.kp = 0
+        elif touchdowns[i]:
+            alg_acc_gyro_mag.kp = 0.5
+            alg_acc_gyro.kp = 0.5
+
+        alg_acc_gyro_mag.update(gyro[i, :] * np.pi / 180, acc[i, :], mag[i, :])
+        alg_acc_gyro.update_imu(gyro[i, :] * np.pi / 180, acc[i, :])
+
+        quat_acc_gyro_mag.append(alg_acc_gyro_mag.quaternion())
+        quat_acc_gyro.append(alg_acc_gyro.quaternion())
+
+    return np.array(quat_acc_gyro_mag), np.array(quat_acc_gyro)
 
 
 def find_angles_gyro(gyro, touchdowns, fs, plot_drift=False):
@@ -241,7 +292,7 @@ if __name__ == '__main__':
     title1 = r"y_pitch45.csv"
     title2 = r"z_yaw45.csv"
 
-    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title2
+    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title0
     df = pd.read_csv(file, error_bad_lines=False)
 
     # Remove "forskyvede" rows

@@ -22,17 +22,25 @@ class Arrow3D(FancyArrowPatch):
 
 def plot_orientation(x_orientation, y_orientation, z_orientation):
     """
-    Plot orientation vectors for x, y and z direction. Start orientation is black, end orientation is magneta with big arrow
-    :param x_orientation: vector with dim (1,3) giving the orientation vector for x-axis
-    :param y_orientation: vector with dim (1,3) giving the orientation vector for y-axis
-    :param z_orientation: vector with dim (1,3) giving the orientation vector for z-axis
+    Plot orientation vectors for x, y and z direction.
+    :param x_orientation: vector with dim (anything,3) giving the orientation vector for x-axis
+    :param y_orientation: vector with dim (anything,3) giving the orientation vector for y-axis
+    :param z_orientation: vector with dim (anything,3) giving the orientation vector for z-axis
     :return: 0
     """
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
+    pos = zeros((len(x_orientation), 3))
+    ax.quiver(pos, pos, pos, x_orientation, y_orientation, z_orientation,
+              arrow_length_ratio=0.1, length=0.04)
+    ax.set_xlabel('x', color='r')
+    ax.set_ylabel('y', color="g")
+    ax.set_zlabel('z', color="b")
+    plt.show()
 
-    #Just a point where the orientation vec can originate from.
-    ax.plot(0, 0, 0, 'o', color='black')
+    # Just a point where the orientation vec can originate from.
+    #ax.plot(0, 0, 0, 'o', color='black')
+    '''
     for ori in range(0, len(x_orientation)):
         if ori == 0:
             x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
@@ -57,7 +65,7 @@ def plot_orientation(x_orientation, y_orientation, z_orientation):
 
             plt.draw()
 
-        elif ori==len(x_orientation)-1:
+        elif ori == len(x_orientation) - 1:
             x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
                         [0, x_orientation[ori, 2]], mutation_scale=40, lw=1, arrowstyle="-|>", color="m")
             ax.add_artist(x)
@@ -81,15 +89,15 @@ def plot_orientation(x_orientation, y_orientation, z_orientation):
             plt.draw()
         else:
             x = Arrow3D([0, x_orientation[ori, 0]], [0, x_orientation[ori, 1]],
-                        [0, x_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="r")
+                        [0, x_orientation[ori, 2]], mutation_scale=10, lw=1, arrowstyle="-|>", color="r")
             ax.add_artist(x)
 
             y = Arrow3D([0, y_orientation[ori, 0]], [0, y_orientation[ori, 1]],
-                        [0, y_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="g")
+                        [0, y_orientation[ori, 2]], mutation_scale=10, lw=1, arrowstyle="-|>", color="g")
             ax.add_artist(y)
 
             z = Arrow3D([0, z_orientation[ori, 0]], [0, z_orientation[ori, 1]],
-                        [0, z_orientation[ori, 2]],  mutation_scale=10, lw=1, arrowstyle="-|>", color="b")
+                        [0, z_orientation[ori, 2]], mutation_scale=10, lw=1, arrowstyle="-|>", color="b")
             ax.add_artist(z)
 
             ax.set_xlabel('x', color='r')
@@ -102,6 +110,7 @@ def plot_orientation(x_orientation, y_orientation, z_orientation):
 
             plt.draw()
     plt.show()
+    '''
 
 
 def update_scatters(iteration, data, scatters):
@@ -119,7 +128,7 @@ def update_scatters(iteration, data, scatters):
     return scatters
 
 
-def animate(position):
+def animate(position, fs=100, save=False):
     """
         Creates the 3D figure and animates it with the input data.
 
@@ -138,7 +147,7 @@ def animate(position):
 
     data = []
     for i in range(first_nonzero - 2, len(x)):
-        data.append(np.array([[x[i], y[i], z[i]]]))
+        data.append(array([[x[i], y[i], z[i]]]))
 
     # Attaching 3D axis to the figure
     fig = plt.figure()
@@ -163,28 +172,37 @@ def animate(position):
     ax.set_title('Leg motion')
 
     # Defines view of window. elev is rotation from z axis, elevation is rotation in xy plane
-    ax.view_init(elev=-120, azim=167)
+    ax.view_init(elev=-171, azim=102)
 
     # Make the animation
+    # Duriation = frames * interval / 1000 (tot time = len(pos)/fs. --> frames = len(pos)/fs * 1000 / interval [s]
+
     ani = animation.FuncAnimation(fig, update_scatters, iterations, fargs=(data, scatters),
                                   interval=1, blit=False, repeat=False)
 
+    if save:
+        # Set up formatting for the movie files
+        # Duriation = frames/fps --> fps = frames/duration = frames * fs / len(position)
+        f = r"C:\\Users\Hanne Maren\\Documents\\Prosjektoppgave\\Presentation\\pos_ani.avi"
+        ani.save(f)
+
     plt.show()
+
     return 0
 
 
-def plot_position(position, x_orientation, y_orientation, z_orientation, fs, fo):
+def plot_position(position, fs, fo=10, x_orientation=None, y_orientation=None, z_orientation=None):
     # Make time axis
     size = len(position)
-    ori_points = [int(n*fs/fo) for n in range(int(size*fo/fs))]
+    ori_points = [int(n * fs / fo) for n in range(int(size * fo / fs))]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-
+    ax.view_init(elev=7, azim=87)
     for i in range(0, len(position)):
         ax.plot(position[i, 0], position[i, 1], position[i, 2], 'o', color='black')
 
-        if i in ori_points:
+        if x_orientation != None and i in ori_points:
             x = Arrow3D([position[i, 0], x_orientation[i, 0] + position[i, 0]],
                         [position[i, 1], x_orientation[i, 1] + position[i, 1]],
                         [position[i, 2], x_orientation[i, 2] + position[i, 2]],

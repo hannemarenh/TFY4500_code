@@ -103,9 +103,9 @@ class NodeAlgorithm:
         # but by using velocity_manual result is basically the same as pos_man
         position_cumtrapz = find_position_cumtrapz(velocity_cumtrapz, touchdowns, self.freq, plot_drift=False)
 
-        # animate(position_cumtrapz)  # Animation does not look good. Christ
+        #animate(position_cumtrapz, save=True)  # Animation does not look good. Christ
 
-        fo = 10     # Frequency of showing orientation in position plot [Hz]
+        fo = 100     # Frequency of showing orientation in position plot [Hz]
         plot_position(position_manual, x_ori, y_ori, z_ori, self.freq, fo)
         # endregion
 
