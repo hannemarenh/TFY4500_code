@@ -9,17 +9,17 @@ from node.touchdown import *
 from node.velocity import *
 from node.position import *
 from node.orientation import find_orientation
+from node.orientation1 import find_acc_lab_euler, find_acc_lab_quat
 from node.animation import animate, plot_position
 # endregion
 
 
 class NodeAlgorithm:
     # Default feature columns (name of what the sensor measures)
-    feature_columns = ["acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z", "mag_x", "mag_y", "mag_z"]
-    acc_earth = np.empty([2, 2], dtype=float)
-    acc_ori = np.empty([2, 2], dtype=float)
-    gyro_earth = np.empty([2, 2], dtype=float)
-    mag_earth = np.empty([2, 2], dtype=float)
+    acc_body = np.empty([2, 2], dtype=float)
+    acc_lab = np.empty([2, 2], dtype=float)
+    gyro_body = np.empty([2, 2], dtype=float)
+    mag_body = np.empty([2, 2], dtype=float)
 
     def __init__(self, file=None, df=None, freq=100):
         """
@@ -49,49 +49,50 @@ class NodeAlgorithm:
         # region Preparation
         # Extract feature columns and change to new coordinate system, where z is down, y is in and x is forward
         # when sensor is placed with USB in and screws out on left foot
-        acc_body = change_coordinate_system(
+        self.acc_body = change_coordinate_system(
             np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float) * 10 ** -3)  # [g]
-        gyro_body = change_coordinate_system(
+        self.gyro_body = change_coordinate_system(
             np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float) * 10 ** -3)  # [dps]
-        mag_body = change_coordinate_system(
+        self.mag_body = change_coordinate_system(
             np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float) * 10 ** -3)  # [gauss]
 
-        # Rotate to earth frame
-        self.acc_earth, self.gyro_earth, self.mag_earth = rotate_to_earth_frame(acc_body, gyro_body, mag_body,
-                                                                                self.freq, plot_rotation=False)
+        # Positive rotation counterclockwise
+        self.gyro_body[:, 1] *= -1
+        self.gyro_body[:, 2] *= -1
+
+        # Apply low pass filter on data
+        self.acc_body = filterLP(1, 5, self.freq, self.acc_body)
+        self.gyro_body = filterLP(1, 5, self.freq, self.gyro_body)
+        self.mag_body = filterLP(1, 5, self.freq, self.mag_body)
 
         # Remove gravity
-        self.acc_earth -= [0, 0, 1]
-
+        #self.remove_gravity(plot=False)
         # endregion
 
         # region Find touchdowns
-        touchdowns = find_touchdowns_gyro(self.gyro_earth, self.freq)
-        touchdowns_acc = find_touchdowns_acc(self.acc_earth, self.freq)
+        touchdowns_gyro = find_touchdowns_gyro(self.gyro_body, self.freq)
+        touchdowns_acc = find_touchdowns_acc(self.acc_body, self.freq)
 
+        touchdowns = touchdowns_gyro
         # Compare touchdowns
-        # compare_touchdowns(touchdowns, touchdowns_acc, self.acc_earth, self.gyro_earth, self.freq,
+        # compare_touchdowns(touchdowns_gyro, touchdowns_acc, self.acc_body, self.gyro_body, self.freq,
         #                   name1='gyro-touchdowns', name2='acc-touchdowns')
 
         # endregion
 
+
         # region Find orientation
-        # Low pass filter data
-        self.acc_earth = filterLP(1, 5, self.freq, self.acc_earth)
-        self.gyro_earth = filterLP(1, 5, self.freq, self.gyro_earth)
-        self.mag_earth = filterLP(1, 5, self.freq, self.mag_earth)
-
-        # Get better results by using lp filtered data!!
-        self.acc_ori, x_ori, y_ori, z_ori = find_orientation(self.acc_earth, self.gyro_earth, self.mag_earth,
-                                                             touchdowns, self.freq, plot_drift=True)
-
-        # Transform acc data to have SI units
-        self.g_to_SI()
+        acc_lab_euler = find_acc_lab_euler(self.acc_body, self.gyro_body, self.freq)
+        acc_lab_quat = find_acc_lab_quat(self.acc_body, self.gyro_body, self.mag_body, self.freq)
+        self.acc_lab = acc_lab_quat
         # endregion
 
         # region Find velocity
-        velocity_manual = find_velocity(self.acc_ori, touchdowns, self.freq, plot_drift=False, plot_vel=False)
-        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_ori, self.freq, plot_vel=False)
+        # Transform acc data to have SI units
+        self.g_to_SI()
+
+        velocity_manual = find_velocity(self.acc_lab, touchdowns, self.freq, plot_drift=True, plot_vel=True)
+        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_lab, self.freq, plot_vel=True)
         # endregion
 
         # region Find position
@@ -106,7 +107,7 @@ class NodeAlgorithm:
         #animate(position_cumtrapz, save=True)  # Animation does not look good. Christ
 
         fo = 100     # Frequency of showing orientation in position plot [Hz]
-        plot_position(position_manual, x_ori, y_ori, z_ori, self.freq, fo)
+        plot_position(position_manual, self.freq)
         # endregion
 
         return self.result
@@ -116,8 +117,39 @@ class NodeAlgorithm:
         Convert acceleration data to SI units and linear acceleration (remove gravity)
         :return:
         """
-        self.acc_earth *= 9.807  # [m/s/s]
-        self.acc_ori *= 9.807  # [m/s/s]
+        self.acc_body *= 9.807  # [m/s/s]
+        self.acc_lab *= 9.807  # [m/s/s]
+
+    def remove_gravity(self, plot=False):
+        bias = np.mean(self.acc_body[:self.freq * 1, :], axis=0)
+        # Remove bias (mostly earth gravity)
+        old_acc = self.acc_body
+        self.acc_body = self.acc_body - bias
+
+        if plot:
+            time = np.linspace(0, len(old_acc) / self.freq, len(old_acc))
+            fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+            ax1.set_title("x direction")
+            ax1.plot(time, old_acc[:, 0], 'b', label="Acceleration")
+            ax1.plot(time, self.acc_body[:, 0], 'g', label="Linear acceleration")
+            ax1.legend(loc=1)
+
+            ax2.set_title("y direction")
+            ax2.plot(time, old_acc[:, 1], 'b', label="Acceleration")
+            ax2.plot(time, self.acc_body[:, 1], 'g', label="Linear acceleration")
+            ax2.legend(loc=1)
+
+            ax3.set_title("z direction")
+            ax3.plot(time, old_acc[:, 2], 'b', label="Acceleration")
+            ax3.plot(time, self.acc_body[:, 2], 'g', label="Linear acceleration")
+            ax3.legend(loc=1)
+
+            fig.text(0.5, 0.04, 'Time [s]', ha='center')
+            fig.text(0.04, 0.5, 'Acceleration [g]', va='center', rotation='vertical')
+            plt.show()
+
+
+
 
     def plot(self):
         """

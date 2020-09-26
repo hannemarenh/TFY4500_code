@@ -182,8 +182,7 @@ def fourier(y, fs):
 
 def find_touchdowns_gyro(gyro, fs):
     """
-    Find touchdowns(=when horse leg is on the ground)
-    OBS: kan hende det blir dårlige resultater hvis hesten vrir beinet mens den går. gyroY burde gå fint
+    Find touchdowns(=when horse leg is on the ground) based on gyroscope data. in y direction.
     :param gyro: gyroscope data
     :return: touchdowns: np.array with 0 where leg is in motion and 1 where leg is at the ground
     """
@@ -196,7 +195,7 @@ def find_touchdowns_gyro(gyro, fs):
     lp_dgyro_abs = filterLP(order, cutOff, fs, dgyro_abs)
 
     threshold = 3
-    touchdowns = np.asarray(lp_dgyro_abs[:, 0] <= threshold, dtype=int)
+    touchdowns = np.asarray(lp_dgyro_abs[:, 1] <= threshold, dtype=int)
 
     return touchdowns
 
@@ -207,16 +206,8 @@ def find_touchdowns_acc(acc, fs):
     :param fs: sampling frequency
     :return: touchdowns: np.array with 0 where leg is in motion and 1 where leg is at the ground
     """
-    order = 1
-    cutOff = 5
-
-    accLP = filterLP(order, cutOff, fs, acc)
-
-    sumxy = np.sum(accLP[:, :2], axis=1)
-    # OBS. Only valid for walk. Need different threshold for different gaits...
-    # 1.3) Steps is where envelope of lowpass filtered accX is under a certain threshold
-    threshold = 2.5
-    env = np.abs(signal.hilbert(accLP[:, 2]))
+    threshold = 0.25
+    env = np.abs(signal.hilbert(acc[:, 2]))
     touchdowns = np.asarray(env <= threshold, dtype=int)
 
     return touchdowns

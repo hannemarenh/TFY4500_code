@@ -103,20 +103,12 @@ def find_orientation(acc, gyro, mag, touchdowns, fs, plot_drift=False):
 def find_quaternions(acc, gyro, mag, fs, touchdowns=None):
     # Computed using AHRS (attitude and heading reference system) algorithm
     initial_orientation = [1, 0, 0, 0]
-    init_period = 2
-    #ran = range(df.index.min(), df[df["time"] <= df.iloc[0]["time"] + init_period].index.max())
 
     quat_acc_gyro_mag = []
     quat_acc_gyro = []
     alg_acc_gyro_mag = ahrs.AHRS(sample_period=1 / fs, kp=1, kp_init=1, initial_orientation=initial_orientation)
     alg_acc_gyro = ahrs.AHRS(sample_period=1 / fs, kp=1, kp_init=1, initial_orientation=initial_orientation)
 
-    # initial convergence
-    # for i in range(0, 2000):
-    #    alg.update_imu(np.array([0, 0, 0]),
-    #                   np.array([np.mean(acc[ran, 0]), np.mean(acc[ran, 1]), np.mean(acc[ran, 2])]))
-
-    # for all data
     for i in np.arange(len(acc)):
         if touchdowns is None:
             alg_acc_gyro_mag.kp = 0
