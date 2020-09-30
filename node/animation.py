@@ -200,7 +200,11 @@ def plot_position(position, fs, fo=10, x_orientation=None, y_orientation=None, z
     ax = fig.add_subplot(111, projection='3d')
     ax.view_init(elev=7, azim=87)
     for i in range(0, len(position)):
-        ax.plot(position[i, 0], position[i, 1], position[i, 2], 'o', color='black')
+        if i ==0:
+            ax.plot(position[i, 0], position[i, 1], position[i, 2], '*', color='red', label="Start")
+            ax.legend()
+        else:
+            ax.plot(position[i, 0], position[i, 1], position[i, 2], 'o', color='black')
 
         if x_orientation != None and i in ori_points:
             x = Arrow3D([position[i, 0], x_orientation[i, 0] + position[i, 0]],
@@ -228,6 +232,7 @@ def plot_position(position, fs, fo=10, x_orientation=None, y_orientation=None, z
         ax.set_xlim([position[:, 0].min(), position[:, 0].max()])
         ax.set_ylim([position[:, 1].min(), position[:, 1].max()])
         ax.set_zlim([position[:, 2].min(), position[:, 2].max()])
+
 
         plt.draw()
     plt.show()

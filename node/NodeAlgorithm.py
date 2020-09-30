@@ -65,8 +65,6 @@ class NodeAlgorithm:
         self.gyro_body = filterLP(1, 5, self.freq, self.gyro_body)
         self.mag_body = filterLP(1, 5, self.freq, self.mag_body)
 
-        # Remove gravity
-        #self.remove_gravity(plot=False)
         # endregion
 
         # region Find touchdowns
@@ -80,11 +78,23 @@ class NodeAlgorithm:
 
         # endregion
 
+        #region validate position
+        '''
+        self.acc_lab = np.zeros((len(self.acc_body), 3))
+        self.acc_lab[:, 2] = 10
+        touchdowns = np.zeros(len(touchdowns))
+        velocity_manual = find_velocity(self.acc_lab, touchdowns, self.freq, plot_drift=False, plot_vel=False)
+        velocity_cumtrapz = find_velocity_cumtrapz(self.acc_lab, self.freq, plot_vel=False)
+        position_manual = find_position(velocity_manual, touchdowns, self.freq, plot_drift=False)
+        plot_position(position_manual[:100,:], self.freq)
+        '''
+        #endregion
 
         # region Find orientation
-        acc_lab_euler = find_acc_lab_euler(self.acc_body, self.gyro_body, self.freq)
+        acc_lab_euler, acc_body_lin = find_acc_lab_euler(self.acc_body, self.gyro_body, self.freq)
         acc_lab_quat = find_acc_lab_quat(self.acc_body, self.gyro_body, self.mag_body, self.freq)
-        self.acc_lab = acc_lab_quat
+        self.acc_lab = acc_lab_euler
+        self.acc_body = acc_body_lin
         # endregion
 
         # region Find velocity
@@ -98,13 +108,10 @@ class NodeAlgorithm:
         # region Find position
         # First method: integrate velocity manually
         position_manual = find_position(velocity_manual, touchdowns, self.freq, plot_drift=False)
-        # animate(position_manual)  # Animation does not look good. Christ
 
         # Second method: integrate using cumtrapz. By using velocity_cumtrapz, position_cumtrapz increase rapidly,
         # but by using velocity_manual result is basically the same as pos_man
         position_cumtrapz = find_position_cumtrapz(velocity_cumtrapz, touchdowns, self.freq, plot_drift=False)
-
-        #animate(position_cumtrapz, save=True)  # Animation does not look good. Christ
 
         fo = 100     # Frequency of showing orientation in position plot [Hz]
         plot_position(position_manual, self.freq)
@@ -121,27 +128,28 @@ class NodeAlgorithm:
         self.acc_lab *= 9.807  # [m/s/s]
 
     def remove_gravity(self, plot=False):
-        bias = np.mean(self.acc_body[:self.freq * 1, :], axis=0)
-        # Remove bias (mostly earth gravity)
-        old_acc = self.acc_body
-        self.acc_body = self.acc_body - bias
+        bias = [0, 0, 1]        #gravity = 1g in z-direction
+        #bias = np.mean(self.acc_body[:self.freq * 1, :], axis=0)
+        # Remove bias
+        old_acc = self.acc_lab
+        self.acc_lab = self.acc_lab - bias
 
         if plot:
             time = np.linspace(0, len(old_acc) / self.freq, len(old_acc))
             fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
             ax1.set_title("x direction")
             ax1.plot(time, old_acc[:, 0], 'b', label="Acceleration")
-            ax1.plot(time, self.acc_body[:, 0], 'g', label="Linear acceleration")
+            ax1.plot(time, self.acc_lab[:, 0], 'g', label="Linear acceleration")
             ax1.legend(loc=1)
 
             ax2.set_title("y direction")
             ax2.plot(time, old_acc[:, 1], 'b', label="Acceleration")
-            ax2.plot(time, self.acc_body[:, 1], 'g', label="Linear acceleration")
+            ax2.plot(time, self.acc_lab[:, 1], 'g', label="Linear acceleration")
             ax2.legend(loc=1)
 
             ax3.set_title("z direction")
             ax3.plot(time, old_acc[:, 2], 'b', label="Acceleration")
-            ax3.plot(time, self.acc_body[:, 2], 'g', label="Linear acceleration")
+            ax3.plot(time, self.acc_lab[:, 2], 'g', label="Linear acceleration")
             ax3.legend(loc=1)
 
             fig.text(0.5, 0.04, 'Time [s]', ha='center')

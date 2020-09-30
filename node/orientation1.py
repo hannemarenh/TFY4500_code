@@ -5,12 +5,14 @@ from node.rotation import change_coordinate_system, rotate_to_earth_frame
 from node.touchdown import filterHP, filterLP
 from node.gait_tracking.quaternion_utils import *
 from node.gait_tracking import ahrs
+from node.animation import plot_orientation
 import scipy
 
 
 def find_acc_lab_quat(acc_body, gyro_body, mag_body, fs, touchdowns=None):
     # Computed using AHRS (attitude and heading reference system) algorithm
     initial_orientation = [1, 0, 0, 0]
+    g = [0, 0, 1]                               # gravity [g]
 
     quat_acc_gyro_mag = []
     quat_acc_gyro = []
@@ -34,11 +36,34 @@ def find_acc_lab_quat(acc_body, gyro_body, mag_body, fs, touchdowns=None):
     # Choose either with or without mag data in calculation of quaternions
     quat = np.array(quat_acc_gyro_mag)
     R = quaternion_to_rotmat(quat)
+    R_inv = R#np.linalg.inv(R)
+
+    # Initialize orientation vectors
+    x_orientation, y_orientation, z_orientation = np.zeros((len(acc_body), 3)), np.zeros((len(acc_body), 3)), np.zeros((len(acc_body), 3))
+
+    # Magnitude of orientation vectors
+    m = 1
+    x_orientation[0, :] = [m, 0, 0]
+    y_orientation[0, :] = [0, m, 0]
+    z_orientation[0, :] = [0, 0, m]
 
     # Calculate acc_lab by rotation acc_body
     acc_lab = np.zeros((len(acc_body), 3))
     for i in range(len(acc_body)):
-        acc_lab[i, :] = R[:, :, i].dot(acc_body[0, :])
+        # Rotate from body to lab frame
+        acc_lab[i, :] = R[:, :, i].dot(acc_body[i, :])
+
+        # Rotate from lab frame to body_frame
+        x_orientation[i, :] = R_inv[:, :, i].dot(x_orientation[0, :])
+        y_orientation[i, :] = R_inv[:, :, i].dot(y_orientation[0, :])
+        z_orientation[i, :] = R_inv[:, :, i].dot(z_orientation[0, :])
+
+    # Remove gravity
+    acc_lab -= g
+
+    start = 0
+    end = -1
+    plot_orientation(x_orientation[start:end, :], y_orientation[start:end, :], z_orientation[start:end, :])
 
     return acc_lab
 
@@ -51,6 +76,7 @@ def find_acc_lab_euler(acc_body, gyro_body, fs):
     :param fs: sampling freq [Hz]
     :return: vacc_lab, acceleration in lab frame
     '''
+    g = [0, 0, 1]
     # Change to radians per second
     gyro_body = gyro_body * np.pi / 180
 
@@ -65,13 +91,29 @@ def find_acc_lab_euler(acc_body, gyro_body, fs):
 
     # Inverse rotation matrix for acceleration data
     R_inv = getR_inv(angles[0, 0], angles[0, 1], angles[0, 2])
+    R = np.linalg.inv(R_inv)
 
     # Initialize acceleration array in lab frame
     acc_lab = np.zeros((len(acc_body), 3))
+    acc_lab_lin = np.zeros((len(acc_body), 3))
+    acc_body_lin = np.zeros((len(acc_body), 3))
+
     acc_lab[0, :] = R_inv @ acc_body[0, :]
+    acc_lab_lin[0, :] = acc_lab[0, :] - g
+    acc_body_lin[0, :] = R @ acc_lab_lin[0, :]
 
     # Time step
     dt = 1/fs
+
+    # Initialize orientation vectors
+    x_orientation, y_orientation, z_orientation = np.zeros((len(angles), 3)), np.zeros((len(angles), 3)), np.zeros((len(angles), 3))
+
+    # Magnitude of orientation vectors
+    m = 1
+    x_orientation[0, :] = [m, 0, 0]
+    y_orientation[0, :] = [0, m, 0]
+    z_orientation[0, :] = [0, 0, m]
+
 
     for i in range(1, len(acc_body)):
         # Rotate dangles to lab_frame
@@ -86,10 +128,25 @@ def find_acc_lab_euler(acc_body, gyro_body, fs):
         # Rotate from acc_body to acc_lab
         acc_lab[i, :] = R_inv @ acc_body[i, :]
 
+        # Remove gravity acc_lab, remove gravity, and rotate back to body frame
+        acc_lab_lin[i, :] = acc_lab[i, :] - g
+        acc_body_lin[i, :] = R @ acc_lab_lin[i, :]
+
+        # Update orientation (rotate from body to lab frame. Always from initial unit vector as orientation in lab frame is unit vectors
+        x_orientation[i, :] = R_inv @ x_orientation[0, :]
+        y_orientation[i, :] = R_inv @ y_orientation[0, :]
+        z_orientation[i, :] = R_inv @ z_orientation[0, :]
+
         # Update rotation matrix M
         M_inv = getM_inv(angles[i, 1], angles[i, 2])
 
-    return acc_lab
+
+    # Check of orientation
+    start = 0
+    end = -1
+    plot_orientation(x_orientation[start:end, :], y_orientation[start:end, :], z_orientation[start:end, :])
+
+    return acc_lab, acc_body_lin
 
 
 def getM_inv(theta, psi):
@@ -155,7 +212,7 @@ if __name__ == '__main__':
     title1 = r"y_pitch45.csv"
     title2 = r"z_yaw45.csv"
 
-    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title0
+    file = r"C:\\Users\\Hanne Maren\\Documents\\Prosjektoppgave\\Data\\control\\" + title1
     df = pd.read_csv(file, error_bad_lines=False)
 
     # Remove "forskyvede" rows
@@ -171,10 +228,6 @@ if __name__ == '__main__':
 
     fs = 100  # [Hz]
 
-    #acc_body = np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float) * 10 ** -3              # [g]
-    #gyro_body = np.asarray(df[['gyroX[mdps]', 'gyroY[mdps]', 'gyroZ[mdps]']], dtype=float) * 10 ** -3    # [dps]
-    #mag_body = np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float) * 10 ** -3              # [gauss]
-
     acc_body = change_coordinate_system(
         np.asarray(df[['accX[mg]', 'accY[mg]', 'accZ[mg]']], dtype=float) * 10 ** -3)  # [g]
     gyro_body = change_coordinate_system(
@@ -183,16 +236,12 @@ if __name__ == '__main__':
         np.asarray(df[['magX[mG]', 'magY[mG]', 'magZ[mG]']], dtype=float) * 10 ** -3)  # [gauss]
 
     # Positive rotation counterclockwise
-    gyro_body[:, 1] *= -1
-    gyro_body[:, 2] *= -1
+    #gyro_body[:, 1] *= -1
+    #gyro_body[:, 2] *= -1
 
     lp_acc_body = filterLP(1, 5, fs, acc_body)
     lp_gyro_body = filterLP(1, 5, fs, gyro_body)
+    lp_mag_body = filterLP(1, 5, fs, mag_body)
 
-    bias = np.mean(lp_acc_body[:fs * 1, :], axis=0)
-
-    lp_acc_body = lp_acc_body - bias
-
-
-    #get_acc_lab(acc_body, gyro_body, fs)
     find_acc_lab_euler(lp_acc_body, lp_gyro_body, fs)
+    find_acc_lab_quat(lp_acc_body, lp_gyro_body, lp_mag_body, fs)
